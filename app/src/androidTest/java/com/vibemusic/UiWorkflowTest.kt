@@ -11,12 +11,13 @@ class UiWorkflowTest {
         compose.onNodeWithText("Añadir a mi biblioteca").performScrollTo().performClick()
         compose.waitUntil(30000) { compose.onAllNodesWithText("Vibe Originals · Vol. 1").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Tu biblioteca").performClick()
+        compose.onNodeWithText("Playlists").performClick()
         compose.onNodeWithContentDescription("Crear playlist").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Noche tranquila")
         compose.onNodeWithText("Guardar").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Noche tranquila").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Noche tranquila").performScrollTo().performClick()
-        compose.onNodeWithContentDescription("Añadir canciones a playlist").performClick()
+        compose.onNodeWithContentDescription("Añadir canciones a playlist").performScrollTo().performClick()
         compose.onNodeWithText("Luz de medianoche").performClick()
         compose.onNodeWithText("Listo").performClick()
         compose.onNodeWithText("Luz de medianoche").assertIsDisplayed()

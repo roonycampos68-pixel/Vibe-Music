@@ -40,7 +40,8 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 - Preferencias de Wi-Fi, calidad disponible en la fuente y modo sin conexión.
 - Licencias y atribuciones conservadas en el dispositivo.
 
-Las fuentes externas se configuran mediante un manifiesto HTTPS. No hace falta
+Se incluye un catálogo público de Vibe Originals listo para descargar desde Buscar.
+Puedes sustituirlo por otra fuente autorizada mediante un manifiesto HTTPS. No hace falta
 ninguna API para la música local. Consulta [el formato y ejemplo real del catálogo](docs/CATALOG.md).
 No se descargan canciones de Spotify ni YouTube. La app tiene marca, icono,
 composiciones y portadas generativas propios.

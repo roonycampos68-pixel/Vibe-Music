@@ -7,11 +7,13 @@ Fecha: 16 de octubre de 2026.
 | Comprobación | Resultado |
 | --- | --- |
 | Compilar APK nativo Android (`assembleDebug`) | Superada |
-| Pruebas JVM/Robolectric (`testDebugUnitTest`) | 18 ejecutadas, 18 superadas, 0 omitidas |
+| Pruebas JVM/Robolectric (`testDebugUnitTest`) | 19 ejecutadas, 19 superadas, 0 omitidas |
 | Android Lint (`lintDebug`) | Superada, sin errores; avisos sobre atributos modernos y el servicio multimedia exportado |
 | Compilar pruebas instrumentadas (`assembleDebugAndroidTest`) | Superada |
 | Verificar firma APK con `apksigner verify --verbose` | Superada, APK Signature Scheme v2 |
 | Repetir `bash scripts/setup-cloud.sh` | Superada; SDK y dependencias reutilizados |
+| Descargar el catálogo público y sus tres pistas CC0 por HTTPS | Superada; SHA-256 de los tres archivos coincide, WAV válidos de 32 segundos |
+| Instalar APK en AOSP API 35 y API 29 | Superada en ambos emuladores |
 
 Las pruebas JVM cubren búsqueda, formatos de duración/tamaño, identificadores de
 descarga, autorización/licencias del catálogo, checksum obligatorio, transporte
@@ -20,24 +22,45 @@ progreso persistente, transferencias sobre TLS, HTTP Range/If-Range, reinicio si
 servidor ignora Range y descarte de bytes alterados. La prueba de TLS usa un servidor
 local con un certificado de prueba explícitamente confiado, sin desactivar TLS.
 
-## Pruebas en Android
+La prueba de interfaz ejecuta la Activity y Compose con Robolectric: comprueba el
+mensaje de servicio de audio no disponible, lo descarta, crea una playlist desde
+la interfaz, añade una canción de prueba y verifica tanto su aparición en pantalla
+como la relación guardada en Room. El servicio de audio se declara no disponible
+en ese test: **no es una prueba de reproducción ni utiliza una canción simulada
+para afirmar que el sonido funciona**.
 
-Se instaló el SDK y arrancó un emulador AOSP Android 15 (API 35, x86_64) mediante
-emulación de CPU porque el entorno no ofrece `/dev/kvm`. La instalación del APK y
-la ejecución instrumentada están en curso al preparar este documento; aún no se
-consideran superadas. El procedimiento y los casos automáticos están incluidos
-en [DEVICE_TESTS.md](DEVICE_TESTS.md).
+El acceso al catálogo y audio público se comprobó desde la máquina de nube. El
+catálogo de Vibe Originals queda configurado como fuente inicial; solo se consulta
+cuando el usuario abre Catálogo legal. Esto no sustituye una prueba de WorkManager
+sobre un teléfono con conexión y posterior modo avión.
 
-## Pendiente en un dispositivo físico
+## Intentos de pruebas instrumentadas
 
-- Llamadas entrantes, pérdida de foco real, pantalla de bloqueo y botones Bluetooth.
-- Reinicio real del teléfono con archivos descargados, variaciones de batería de
-  fabricantes y formatos de audio distintos del conjunto de pruebas.
-- Descarga desde una fuente pública propia con permisos verificables y prueba
-  completa de modo avión después de descargar. Las transferencias TLS, integridad y
-  reanudación sí se probaron automáticamente; no equivalen a la prueba en un teléfono.
+Se prepararon emuladores AOSP Android 15 (API 35) y Android 10 (API 29), x86_64,
+mediante emulación de CPU porque el entorno no dispone de `/dev/kvm`. Ambos
+instalaron los APK, pero presentaron diálogos de **System UI isn't responding**;
+API 35 también bloqueó el proceso del sistema. Se detuvieron los emuladores
+iniciados para esta tarea tras comprobar los fallos del sistema. Los intentos de
+pruebas instrumentadas no completaron con un resultado válido y **ninguna se
+considera superada**. Esto es una limitación observada del entorno; el resultado
+del comportamiento en un teléfono permanece sin verificar.
 
-No se afirma haber superado estas pruebas físicas. No hay un catálogo comercial ni
-una cuenta de terceros configurada. El conector y un catálogo de audio original CC0
-se incluyen para configurar una fuente propia sin credenciales. El funcionamiento
-específico de cada códec depende de Android y del dispositivo.
+## Matriz de los requisitos de dispositivo
+
+| Caso solicitado | Evidencia disponible / pendiente |
+| --- | --- |
+| Importar MP3 y reproducir | Test instrumentado incluido; sin resultado completo en Android |
+| Crear playlist y añadir canciones | Superado en Compose + Room con Robolectric; pendiente en teléfono |
+| Cerrar/reabrir sin perder biblioteca | Persistencia de Room superada; reinicio del proceso Android pendiente |
+| Reproducir con pantalla apagada | Pendiente en teléfono |
+| Cambiar de aplicación sin interrupción | Pendiente en teléfono |
+| Descargar audio autorizado | Catálogo, TLS, integridad y reanudación superados en nube/JVM; Worker en Android pendiente |
+| Modo avión después de descargar | Pendiente en teléfono |
+| Reiniciar el teléfono y conservar descargas | Pendiente en teléfono |
+| Eliminar descarga y actualizar espacio | Cascada de relaciones probada; archivo y pantalla en Android pendientes |
+| Controles de bloqueo y Bluetooth | Pendiente en teléfono, al igual que llamadas y foco real |
+
+El procedimiento reproducible está en [DEVICE_TESTS.md](DEVICE_TESTS.md). Se incluyen
+los tests instrumentados de importación, persistencia, reproducción y navegación.
+También deben comprobarse distintos códecs y políticas de batería de fabricantes.
+No se afirma haber superado ninguna de estas verificaciones físicas.

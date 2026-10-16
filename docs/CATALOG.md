@@ -81,8 +81,8 @@ no la incluyas en el APK. El conector actual utiliza manifiestos públicos sin c
 ## Catálogo de Vibe Originals
 
 `catalog/vibe-originals.json` contiene tres archivos originales del propio proyecto,
-con huellas reales y licencia CC0. Si el repositorio en GitHub es público, se puede
-usar esta URL para probar descargas:
+con huellas reales y licencia CC0. Se comprobó el acceso público por HTTPS y las huellas de los tres archivos.
+Esta URL está configurada como fuente inicial para probar descargas:
 
 ```
 https://raw.githubusercontent.com/roonycampos68-pixel/Vibe-Music/main/catalog/vibe-originals.json
@@ -90,7 +90,7 @@ https://raw.githubusercontent.com/roonycampos68-pixel/Vibe-Music/main/catalog/vi
 
 Si el repositorio es privado, publica únicamente estos recursos CC0 en un servidor
 HTTPS propio y actualiza las URLs. La app no contiene ni debe contener tokens de
-GitHub. El catálogo no se activa automáticamente porque la visibilidad pública del
-repositorio no se presupone. Para probar la descarga, usa una instalación limpia o
+GitHub. Si el repositorio cambia de visibilidad o ubicación, configura otra fuente desde
+Ajustes. Solo se accede al catálogo al abrir Catálogo legal desde Buscar. Para probar la descarga, usa una instalación limpia o
 elimina antes el archivo original correspondiente: la deduplicación evita descargar
 por segunda vez audio que ya está guardado.

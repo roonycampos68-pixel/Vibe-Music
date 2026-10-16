@@ -107,10 +107,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun rememberSearch(value: String) = runTask { app.settings.rememberSearch(value) }
     fun loadCatalog() = runTask {
-        if (settings.value.offlineOnly) { _catalogError.value = "El modo sin conexión está activo";return@runTask }
-        if (settings.value.catalogUrl.isBlank()) { _catalogError.value = "Configura un catálogo autorizado en Ajustes";return@runTask }
+        val currentSettings = app.settings.settings.first()
+        if (currentSettings.offlineOnly) { _catalogError.value = "El modo sin conexión está activo";return@runTask }
+        if (currentSettings.catalogUrl.isBlank()) { _catalogError.value = "Configura un catálogo autorizado en Ajustes";return@runTask }
         _catalogLoading.value = true;_catalogError.value = null
-        try { _catalog.value = CatalogRepository().load(settings.value.catalogUrl) }
+        try { _catalog.value = CatalogRepository().load(currentSettings.catalogUrl) }
         catch (e: Exception) { _catalogError.value = e.message ?: "No se pudo cargar el catálogo" }
         finally { _catalogLoading.value = false }
     }
