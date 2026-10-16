@@ -13,7 +13,7 @@ Fecha: 16 de octubre de 2026.
 | Verificar firma APK con `apksigner verify --verbose` | Superada, APK Signature Scheme v2 |
 | Repetir `bash scripts/setup-cloud.sh` | Superada; SDK y dependencias reutilizados |
 | Descargar el catálogo público y sus tres pistas CC0 por HTTPS | Superada; SHA-256 de los tres archivos coincide, WAV válidos de 32 segundos |
-| Instalar APK en AOSP API 35 y API 29 | Superada en ambos emuladores |
+| Instalar compilación previa en AOSP API 35 y API 29 | Superada en ambos; anterior a activar el catálogo inicial |
 
 Las pruebas JVM cubren búsqueda, formatos de duración/tamaño, identificadores de
 descarga, autorización/licencias del catálogo, checksum obligatorio, transporte
@@ -40,7 +40,9 @@ Se prepararon emuladores AOSP Android 15 (API 35) y Android 10 (API 29), x86_64,
 mediante emulación de CPU porque el entorno no dispone de `/dev/kvm`. Ambos
 instalaron los APK, pero presentaron diálogos de **System UI isn't responding**;
 API 35 también bloqueó el proceso del sistema. Se detuvieron los emuladores
-iniciados para esta tarea tras comprobar los fallos del sistema. Los intentos de
+iniciados para esta tarea tras comprobar los fallos del sistema. El APK final,
+recompilado después de activar el catálogo inicial, tiene firma e integridad
+verificadas; no se volvió a instalar tras detener los emuladores. Los intentos de
 pruebas instrumentadas no completaron con un resultado válido y **ninguna se
 considera superada**. Esto es una limitación observada del entorno; el resultado
 del comportamiento en un teléfono permanece sin verificar.
