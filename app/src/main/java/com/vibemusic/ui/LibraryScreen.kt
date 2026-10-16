@@ -106,7 +106,7 @@ private data class CollectionRow(val track: Track?, val request: PlaylistRequest
             }
             if (playlist != null && pending.isNotEmpty()) {
                 Text("Los títulos importados no contienen audio. Busca una fuente autorizada o vincula tus propios archivos. Solo las canciones disponibles se reproducen sin conexión.", fontSize = 12.sp, color = VibeMuted)
-                if (resolveProgress == null) TextButton({ vm.resolvePlaylist(playlist) }) { Icon(Icons.Rounded.DownloadForOffline, null);Spacer(Modifier.width(8.dp));Text("Buscar y descargar coincidencias") }
+                if (resolveProgress == null) TextButton({ vm.resolvePlaylist(playlist) }) { Icon(Icons.Rounded.DownloadForOffline, null);Spacer(Modifier.width(8.dp));Text("Buscar coincidencias en Descargables") }
             }
             if (resolveProgress != null) {
                 Text(resolveProgress!!, fontSize = 12.sp, color = VibeGreen)

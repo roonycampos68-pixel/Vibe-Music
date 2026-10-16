@@ -12,7 +12,9 @@ cuenta. No necesitas introducir tu contraseña ni un token de Spotify en Vibe.
 3. Vuelve a Vibe, pulsa **Seleccionar CSV o JSON** y elige el archivo.
 4. En **Tu biblioteca → Playlists**, abre la lista importada. Verás cuántas
    canciones están disponibles y cuáles siguen pendientes.
-5. Pulsa **Buscar y descargar coincidencias** para comprobar fuentes autorizadas.
+5. Pulsa el icono de buscar de un título pendiente para abrir su búsqueda en
+   YouTube. Elige la grabación correcta y pulsa descargar MP3 para vincularla al
+   terminar. **Buscar coincidencias en Descargables** comprueba las fuentes anteriores.
    Solo se elige automáticamente una grabación si título y artista coinciden
    exactamente tras normalizar mayúsculas, acentos y puntuación, sin ambigüedad.
    Las versiones en directo y remixes no se consideran equivalentes.
@@ -26,7 +28,9 @@ La solicitud a Spotify puede tardar varios días.
 
 La exportación incluye títulos, artistas, álbumes y referencias de Spotify;
 **no incluye archivos de audio**. Commons no contiene todas las grabaciones de
-Spotify y las canciones comerciales sin una fuente autorizada seguirán pendientes.
+Spotify. Solo las canciones para las que guardes un archivo de audio quedarán
+disponibles sin conexión. La nueva conversión de vídeos públicos está explicada en
+[YOUTUBE.md](YOUTUBE.md).
 Un enlace de Spotify por sí solo no importa la playlist. No se extrae audio,
 no se convierten vistas previas en canciones y no se elude DRM.
 

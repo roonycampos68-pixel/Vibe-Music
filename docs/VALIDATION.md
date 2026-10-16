@@ -1,5 +1,8 @@
 # Validación de la entrega
 
+Este archivo conserva el informe de la versión 1.1. Para la entrega actual consulta
+[la validación de Vibe 1.2](VALIDATION-1.2.md).
+
 Versión 1.1.0 · Fecha: 16 de octubre de 2026.
 
 ## Ejecutado en el entorno de nube

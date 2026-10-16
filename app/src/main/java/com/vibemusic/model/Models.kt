@@ -57,7 +57,9 @@ data class DownloadEntry(
     val error: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "'SHA-256'") val hashAlgorithm: String = "SHA-256",
-    val savedTrackId: String? = null
+    val savedTrackId: String? = null,
+    @ColumnInfo(defaultValue = "'catalog'") val provider: String = "catalog",
+    val progressPercent: Float? = null
 )
 
 data class CatalogQuality(val label: String, val url: String, val sha256: String, val sizeBytes: Long, val hashAlgorithm: String = "SHA-256")

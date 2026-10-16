@@ -7,18 +7,19 @@ y reproducción real con Media3.
 ## Instalar en el teléfono
 
 El APK de esta entrega se encuentra en
-[`releases/Vibe-Music-1.1.0-debug.apk`](releases/Vibe-Music-1.1.0-debug.apk?raw=true).
+[`releases/Vibe-Music-1.2.0-arm64-v8a-debug.apk`](releases/Vibe-Music-1.2.0-arm64-v8a-debug.apk?raw=true).
+Para teléfonos de 32 bits usa [la variante ARM de 32 bits](releases/Vibe-Music-1.2.0-armeabi-v7a-debug.apk?raw=true).
 Descárgalo en tu Android, abre el archivo y permite instalar aplicaciones desde el
 navegador/gestor de archivos cuando Android lo solicite. Es una compilación de
 pruebas firmada con una clave de depuración, no una publicación de Google Play.
-La versión 1.1.0 actualiza la 1.0.0 conservando la biblioteca; no la desinstales.
+La versión 1.2.0 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
 Si GitHub muestra 404, inicia sesión con una cuenta que tenga acceso al repositorio
 y vuelve a abrir el enlace. La app no necesita acceso a GitHub para buscar música.
 
 También puedes instalar el APK compilado con depuración USB:
 
 ```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 ```
 
 Al abrir, elige **Importar mi música** y selecciona MP3, M4A, AAC, FLAC, WAV u OGG.
@@ -30,9 +31,13 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 ## Funciones
 
 - Inicio con filtros, colecciones recientes, favoritas y álbumes guardados.
-- Buscar en **Todo** (opción inicial), **Mi música** o **En línea**. La búsqueda
-  pública consulta Wikimedia Commons por canción o artista, con paginación,
-  cancelación de consultas antiguas, errores visibles y reintento.
+- Buscar en **YouTube** (opción inicial), **Mi música** o **Descargables**.
+  YouTube muestra resultados dentro de Vibe por título/artista o enlace del vídeo.
+- Descargar audio de vídeos públicos y convertirlo a MP3 en el teléfono mediante
+  yt-dlp y FFmpeg. Progreso, pausa, reanudación, cancelación y vinculación a
+  playlists; los MP3 completos se reproducen sin internet y sin anuncios.
+- Reproducción en línea en la app o página de YouTube, con sus anuncios.
+  El botón de reproducir usa Vibe si el MP3 ya está guardado.
 - Importar playlists de Spotify mediante CSV de Exportify o JSON de los datos
   de tu cuenta. Conserva el orden y los títulos pendientes; vincula archivos
   locales y permite buscar coincidencias autorizadas. Exporta playlists a CSV.
@@ -49,8 +54,9 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 - Licencias y atribuciones conservadas en el dispositivo.
 
 Se incluyen tres Vibe Originals en el APK, disponibles desde Buscar incluso sin red.
-La búsqueda pública utiliza Wikimedia Commons sin claves de API; puedes añadir otra
-fuente autorizada mediante un manifiesto HTTPS. Consulta [las fuentes y las descargas](docs/CATALOG.md).
+La pestaña Descargables conserva Wikimedia Commons sin claves de API; puedes añadir otra
+fuente autorizada mediante un manifiesto HTTPS. Consulta [las fuentes y las descargas](docs/CATALOG.md)
+y [YouTube, MP3 y mantenimiento del motor](docs/YOUTUBE.md).
 Commons no contiene todo el catálogo comercial de Spotify. La importación de Spotify
 traslada títulos y artistas, no sus archivos de audio; consulta [la guía de importación](docs/SPOTIFY.md).
 La app tiene marca, icono,
@@ -72,7 +78,10 @@ Se incluyen Gradle Wrapper 8.10.2 con verificación SHA-256, AGP 8.8.2 y Kotlin 
 ./gradlew connectedDebugAndroidTest   # requiere dispositivo/emulador
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
+APK por arquitectura: `app/build/outputs/apk/debug/app-<ABI>-debug.apk`.
+Para emuladores x86_64 elige `app-x86_64-debug.apk`. Las bibliotecas del conversor
+se empaquetan por ABI para reducir la descarga. La primera búsqueda prepara el
+motor en segundo plano y necesita espacio adicional en el dispositivo.
 Para distribución comercial configura una clave de firma propia y una compilación
 release. No añadas claves de firma ni secretos al repositorio.
 
@@ -98,10 +107,13 @@ están en [docs/DEVICE_TESTS.md](docs/DEVICE_TESTS.md).
 
 ## Documentación
 
-- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION.md)
+- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION-1.2.md)
 - [Arquitectura y persistencia](docs/ARCHITECTURE.md)
 - [Catálogos legales y descargas](docs/CATALOG.md)
 - [Importar y exportar playlists de Spotify](docs/SPOTIFY.md)
+- [YouTube y conversión a MP3](docs/YOUTUBE.md)
+- [Licencias de los componentes](THIRD_PARTY.md)
 - [Requisitos originales](docs/PRODUCT_REQUIREMENTS.md)
 
-Código MIT. Audio original incluido: CC0-1.0. Las dependencias mantienen sus licencias.
+Aplicación combinada 1.2: GPL-3.0 o posterior (`COPYING`). Código original 1.0/1.1:
+MIT (`LICENSE-MIT`). Audio original: CC0-1.0. Las dependencias mantienen sus licencias.

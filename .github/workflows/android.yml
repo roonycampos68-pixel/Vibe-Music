@@ -21,7 +21,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Vibe-Music-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with:

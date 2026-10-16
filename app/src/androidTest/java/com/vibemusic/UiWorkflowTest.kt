@@ -24,6 +24,7 @@ class UiWorkflowTest {
         compose.onNodeWithContentDescription("Reproducir colección").performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithContentDescription("Pausar").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Buscar").performClick()
+        compose.onNodeWithText("Mi música").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("medianoche")
         compose.onAllNodesWithText("Luz de medianoche").assertCountEquals(2)
     }

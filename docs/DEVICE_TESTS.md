@@ -10,7 +10,7 @@ Con Android SDK, un teléfono/emulador Android 10+ y depuración USB:
 
 ```bash
 ./gradlew assembleDebug assembleDebugAndroidTest
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 adb shell pm grant com.vibemusic android.permission.POST_NOTIFICATIONS # Android 13+
 ./gradlew connectedDebugAndroidTest
 ```
@@ -32,8 +32,8 @@ No borres datos de una instalación que contenga tu biblioteca personal.
    biblioteca, playlists, favoritos, cola y posición. Pulsar reproducir.
 4. Apagar la pantalla durante al menos un minuto y escuchar la continuidad.
 5. Cambiar a otra app y comprobar el sonido y la notificación multimedia.
-6. Buscar por título/artista con el filtro inicial Todo. Verificar resultados
-   locales, audio incluido y Wikimedia; probar En línea, Mi música, acentos,
+6. Buscar por título/artista con el filtro inicial YouTube. Verificar resultados
+   de YouTube, Mi música y Descargables (originales incluidos y Wikimedia); probar acentos,
    cambios rápidos de consulta, paginación, errores y reintento. Descargar desde
    una fuente con permiso. También probar un catálogo propio HTTPS. Descargar,
    pausar/reanudar y cancelar. Revisar progreso, calidad, checksum y ausencia de
@@ -67,3 +67,23 @@ al repositorio de GitHub.
 5. Exportar la lista a CSV, reimportarla y comparar su orden y los pendientes.
    Eliminar audio vinculado debe conservar el título; eliminar la playlist debe
    conservar el audio de la biblioteca.
+
+## Conversor nativo de la versión 1.2
+
+```bash
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.vibemusic.NativeConverterTest
+```
+
+Este caso ejecuta Python/yt-dlp/FFmpeg en Android con un WAV original incluido,
+sin red ni interfaz. Convierte a MP3, valida duración y metadatos con Android,
+importa, comprueba deduplicación y limpia sus archivos. No demuestra que YouTube
+permita extraer un vídeo real. Para emulador x86_64 instala el APK x86_64; para un
+teléfono elige el ABI correspondiente.
+
+Con conexión real, buscar una grabación propia o con permiso de descarga; descargar
+a MP3 y observar sus fases, pausar, reanudar y cancelar. Repetir con enlace corto,
+con vídeo privado, retirado y en vivo; los fallos deben ser visibles sin añadir
+audio incompleto. Completar una descarga, activar modo avión, cerrar/abrir y
+reproducir el MP3. Comprobar Wi-Fi, almacenamiento insuficiente y varias descargas
+en cola. La reproducción de una canción aún no descargada debe abrir YouTube;
+la guardada debe sonar en Vibe. Estas comprobaciones necesitan ejecución real.

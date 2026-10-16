@@ -11,14 +11,22 @@ android {
         applicationId = "com.vibemusic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}";jniLibs.useLegacyPackaging = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
@@ -43,6 +51,9 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")

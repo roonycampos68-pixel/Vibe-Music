@@ -4,7 +4,7 @@ Vibe Music reproduce archivos locales y permite guardar audio con licencia de
 descarga compatible. La biblioteca no necesita cuenta, claves de API o internet.
 La importación de playlists de Spotify traslada metadatos; véase [SPOTIFY.md](SPOTIFY.md).
 
-En **Buscar → Todo** o **En línea**, escribe un título o artista. El buscador
+En **Buscar → Descargables**, escribe un título o artista. Ese buscador
 consulta la API pública de Wikimedia Commons, con resultados paginados. Solo
 presenta audio de `upload.wikimedia.org` con licencia reconocida, tamaño y SHA-1
 publicados por la API. Conserva autor, fuente y licencia; puedes abrir la página

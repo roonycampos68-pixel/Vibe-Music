@@ -1,6 +1,8 @@
 package com.vibemusic.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,11 +49,12 @@ import androidx.compose.ui.platform.LocalContext
                 Text(entry.title, fontWeight = FontWeight.Bold)
                 Text("${entry.artist} · ${entry.quality}", color = VibeMuted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
-                if (entry.totalBytes > 0) LinearProgressIndicator(progress = { (entry.downloadedBytes.toFloat() / entry.totalBytes).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) else if (entry.state == "downloading") LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (entry.provider == "youtube" && entry.progressPercent != null) LinearProgressIndicator(progress = { (entry.progressPercent / 100f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                else if (entry.totalBytes > 0) LinearProgressIndicator(progress = { (entry.downloadedBytes.toFloat() / entry.totalBytes).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) else if (entry.state == "downloading") LinearProgressIndicator(Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(when (entry.state) { "queued" -> "En espera de red";"downloading" -> "Descargando";"paused" -> "En pausa";else -> "No se pudo descargar" }, color = VibeMuted, fontSize = 12.sp)
-                        Text(MusicRules.formatSize(entry.downloadedBytes) + if (entry.totalBytes > 0) " / ${MusicRules.formatSize(entry.totalBytes)}" else "", color = VibeMuted, fontSize = 11.sp)
+                        Text(if (entry.provider == "youtube") (entry.progressPercent?.let { "${it.toInt()}% · " }.orEmpty() + "Salida MP3") else MusicRules.formatSize(entry.downloadedBytes) + if (entry.totalBytes > 0) " / ${MusicRules.formatSize(entry.totalBytes)}" else "", color = VibeMuted, fontSize = 11.sp)
                     }
                     IconAction(if (entry.state in listOf("queued", "downloading")) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (entry.state in listOf("queued", "downloading")) "Pausar descarga" else "Reanudar descarga", { if (entry.state in listOf("queued", "downloading")) vm.pauseDownload(entry.id) else vm.resumeDownload(entry.id) })
                     IconAction(Icons.Rounded.Close, "Cancelar descarga", { vm.cancelDownload(entry.id) })
@@ -72,6 +75,7 @@ import androidx.compose.ui.platform.LocalContext
     var sleepDialog by remember { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }
     var qualityDialog by remember { mutableStateOf(false) }
+    var softwareLicenses by remember { mutableStateOf(false) }
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp)) {
         item {
@@ -90,6 +94,7 @@ import androidx.compose.ui.platform.LocalContext
             ListItem(headlineContent = { Text("Fuente adicional (opcional)") }, supportingContent = { Text(if (settings.catalogUrl.isBlank()) "Wikimedia y el audio incluido ya están disponibles" else "Catálogo HTTPS adicional configurado") }, leadingContent = { Icon(Icons.Rounded.CloudDownload, null) }, modifier = Modifier.clickable { catalogDialog = true })
             ListItem(headlineContent = { Text("Licencias y atribuciones") }, supportingContent = { Text("Consulta los permisos de tu música") }, modifier = Modifier.clickable { licenses = true })
             SectionTitle("Acerca de Vibe Music")
+            ListItem(headlineContent = { Text("Software libre y código fuente") }, supportingContent = { Text("GPL-3.0 · yt-dlp ${com.vibemusic.data.YouTubeMusic.ENGINE_VERSION} · FFmpeg") }, modifier = Modifier.clickable { softwareLicenses = true })
             Text("Versión ${com.vibemusic.BuildConfig.VERSION_NAME}\nReproductor independiente para tu propia música. Sin cuenta y sin suscripción.\n\nTus archivos, playlists y favoritos se guardan solo en este dispositivo. Desinstalar la app elimina su almacenamiento privado.\n\nMP3 · M4A · AAC · FLAC · WAV · OGG\nLa compatibilidad depende de los códecs del dispositivo.", color = VibeMuted, fontSize = 13.sp, lineHeight = 21.sp)
         }
     }
@@ -100,6 +105,14 @@ import androidx.compose.ui.platform.LocalContext
             Text("Usa únicamente fuentes del titular o un distribuidor con permiso. No añadas claves privadas a la URL.", color = VibeMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }, confirmButton = { TextButton({ vm.setCatalog(catalogUrl);catalogDialog = false }) { Text("Guardar") } }, dismissButton = { TextButton({ catalogDialog = false }) { Text("Cancelar") } })
+    if (softwareLicenses) AlertDialog(onDismissRequest = { softwareLicenses = false }, title = { Text("Licencias de software") }, text = {
+        val licenseText = remember { context.assets.open("legal/GPL-3.0.txt").bufferedReader().use { it.readText() } }
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            Text("Vibe Music 1.2 se distribuye bajo GPL-3.0 o posterior. Copyright © 2026 Vibe Music contributors. Incluye youtubedl-android, yt-dlp, Python, QuickJS y FFmpeg. El código original conserva MIT y el audio original CC0. Se entrega sin garantía. Las licencias de software no conceden derechos sobre las grabaciones.", fontSize = 12.sp)
+            TextButton({ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/roonycampos68-pixel/Vibe-Music/blob/main/THIRD_PARTY.md"))) } }) { Text("Código fuente y avisos de componentes") }
+            Text(licenseText, fontSize = 11.sp, color = VibeMuted)
+        }
+    }, confirmButton = { TextButton({ softwareLicenses = false }) { Text("Cerrar") } })
     if (sleepDialog) AlertDialog(onDismissRequest = { sleepDialog = false }, title = { Text("Temporizador de sueño") }, text = { Column { listOf(0, 15, 30, 45, 60, 90).forEach { minutes -> TextButton({ vm.sleep(minutes);sleepDialog = false }, Modifier.fillMaxWidth()) { Text(if (minutes == 0) "Desactivar" else "$minutes minutos") } } } }, confirmButton = {})
     if (qualityDialog) {
         val catalog by vm.catalog.collectAsState()

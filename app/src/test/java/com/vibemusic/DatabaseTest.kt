@@ -58,4 +58,15 @@ class DatabaseTest {
         assertNull(db.music().download("remote"))
         assertNotNull(db.music().track("imported"))
     }
+    @Test fun youtubeProgressPersistsAndLateCallbacksCannotChangePausedDownloads() = runTest {
+        val entry = DownloadEntry("youtube-test", "Audio", "Autor", "YouTube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "Derechos del titular", "https://www.youtube.com/static?template=terms", "Autor", "", provider = "youtube", hashAlgorithm = "LOCAL-SHA-256")
+        db.music().saveDownload(entry);db.music().downloadState(entry.id, "downloading")
+        db.music().conversionProgress(entry.id, 75f, "Convirtiendo a MP3")
+        db.music().downloadState(entry.id, "paused")
+        db.music().conversionProgress(entry.id, 100f, "Callback tardío")
+        db.close();db = open()
+        val saved = db.music().download(entry.id)!!
+        assertEquals("youtube", saved.provider);assertEquals(75f, saved.progressPercent);assertEquals("paused", saved.state)
+        assertNull(saved.error)
+    }
 }

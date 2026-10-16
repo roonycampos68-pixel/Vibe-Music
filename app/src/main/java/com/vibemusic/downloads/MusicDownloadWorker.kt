@@ -36,15 +36,25 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             return@withContext Result.retry()
         }
         val dir = File(applicationContext.filesDir, "pending").apply { mkdirs() }
-        val partial = File(dir, "$id.part")
+        val youtubeDir = File(dir, "youtube-$id")
+        var partial = File(dir, "$id.part")
         val client = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).followSslRedirects(false).followRedirects(false).build()
         try {
             setForeground(foreground(entry.title))
             dao.downloadState(id, "downloading")
-            val hash = VerifiedDownload(client).transfer(entry, partial) { bytes, total, etag -> dao.progress(id, bytes, total, etag) }
+            val hash = if (entry.provider == "youtube") {
+                dao.conversionProgress(id, null, "Preparando descarga y conversión a MP3")
+                partial = com.vibemusic.data.YouTubeMusic(applicationContext).download(entry.url, youtubeDir, "download-$id") { percent, stage ->
+                    val current = app.settings.settings.first()
+                    if (current.offlineOnly) throw IOException("Modo sin conexión activado")
+                    if (current.wifiOnly && manager.getNetworkCapabilities(manager.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) throw IOException("Esperando Wi-Fi")
+                    dao.conversionProgress(id, percent, stage)
+                }
+                MusicRepository.sha256(partial)
+            } else VerifiedDownload(client).transfer(entry, partial) { bytes, total, etag -> dao.progress(id, bytes, total, etag) }
             val existing = dao.byHash(hash)
             if (existing == null) {
-                val target = File(app.repository.musicDir, "$id.audio")
+                val target = File(app.repository.musicDir, if (entry.provider == "youtube") "$id.mp3" else "$id.audio")
                 check(partial.renameTo(target)) { "No se pudo guardar el audio" }
                 try {
                     val track = app.repository.metadata(target, hash, entry.title, "download", entry)
@@ -68,9 +78,11 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                 }
                 partial.delete()
             }
+            if (entry.provider == "youtube") youtubeDir.deleteRecursively()
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (e: IOException) {
+            if (dao.download(id)?.state == "paused" || app.settings.settings.first().offlineOnly) return@withContext Result.success()
             if (runAttemptCount < 3) {
                 dao.downloadState(id, "queued", "Transferencia interrumpida. Se reintentará automáticamente")
                 Result.retry()
@@ -80,7 +92,7 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             }
         }
         catch (e: Exception) {
-            dao.downloadState(id, "failed", e.message ?: "No se pudo completar la descarga")
+            dao.downloadState(id, "failed", if (entry.provider == "youtube") "No se pudo descargar o convertir el vídeo. Puede estar restringido o requerir una actualización del motor; prueba otro vídeo público" else e.message ?: "No se pudo completar la descarga")
             Result.failure()
         } finally { client.connectionPool.evictAll() }
     }

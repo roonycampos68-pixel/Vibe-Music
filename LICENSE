@@ -1,4 +1,14 @@
-MIT License
+Vibe Music 1.2.0 and later
+
+The combined application is distributed under the GNU General Public License,
+version 3 or (at your option) any later version. See COPYING for the complete
+license. This distribution includes GPL components youtubedl-android and FFmpeg.
+Copyright (c) 2026 Vibe Music contributors.
+
+Original Vibe Music source from versions 1.0 and 1.1 retains the following MIT
+license, also preserved separately in LICENSE-MIT. Original audio remains CC0.
+
+MIT License (original source)
 
 Copyright (c) 2026 Vibe Music contributors
 

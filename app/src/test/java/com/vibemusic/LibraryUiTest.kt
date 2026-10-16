@@ -98,24 +98,52 @@ class LibraryUiTest {
         runBlocking { assertEquals(null, app.database.music().requests().single().trackId) }
     }
 
-    @Test fun searchStartsWithAllSourcesAndFindsBundledAudioEvenOffline() {
+    @Test fun downloadableSourceFindsBundledAudioEvenOfflineAndYouTubeIsDisabled() {
         val app = compose.activity.application as VibeApplication
         runBlocking { app.settings.offlineOnly(true) }
         compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
         compose.onNodeWithText("Buscar").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("El modo sin conexión está activo. YouTube necesita internet.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("Muse")
+        compose.onNodeWithText("Buscar en YouTube").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performTextClearance()
+        compose.onNodeWithText("Descargables").performScrollTo().performClick()
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[com.vibemusic.ui.MusicViewModel::class.java]
+        compose.waitUntil(10000) { compose.onRoot().fetchSemanticsNode();vm.catalog.value.any { it.title == "Luz de medianoche" } }
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Luz de medianoche"))
         compose.onNodeWithText("Luz de medianoche").assertIsDisplayed()
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).performTextInput("LUZ")
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Entre órbitas").fetchSemanticsNodes().isEmpty() }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.waitUntil(10000) { compose.onRoot().fetchSemanticsNode();vm.catalog.value.map { it.title } == listOf("Luz de medianoche") }
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Luz de medianoche"))
         compose.onNodeWithContentDescription("Guardar Luz de medianoche").assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).performTextReplacement("inexistente-1234")
+        compose.mainClock.advanceTimeBy(1000)
+        compose.waitUntil(10000) { compose.onRoot().fetchSemanticsNode();vm.catalog.value.isEmpty() && !vm.catalogLoading.value }
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("No encontramos audio descargable"))
         compose.onNodeWithText("No encontramos audio descargable").assertIsDisplayed()
         compose.onNodeWithText("Importar música").assertExists()
+    }
+
+    @Test fun youtubeIsTheDefaultSearchAndItsExternalFallbackDoesNotCreateDownloads() {
+        val app = compose.activity.application as VibeApplication
+        runBlocking { app.settings.offlineOnly(false) }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        compose.onNodeWithText("Buscar").performClick()
+        compose.onNodeWithText("Buscar en YouTube").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performTextInput("Muse Uprising")
+        compose.onNodeWithText("Abrir búsqueda en YouTube").performScrollTo().performClick()
+        compose.runOnIdle {
+            val launched = Shadows.shadowOf(compose.activity).nextStartedActivity
+            assertEquals("com.google.android.youtube", launched.`package`)
+            assertEquals("Muse Uprising", launched.data!!.getQueryParameter("search_query"))
+        }
+        runBlocking { org.junit.Assert.assertTrue(app.database.music().observeDownloads().first().isEmpty()) }
+        org.junit.Assert.assertTrue(WorkManager.getInstance(app).getWorkInfosByTag("music-download").get().isEmpty())
     }
 
 }

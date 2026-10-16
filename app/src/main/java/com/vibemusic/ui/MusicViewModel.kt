@@ -39,6 +39,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val playback = _playback.asStateFlow()
     private val included by lazy { CatalogRepository.bundled(app) }
     private val publicSource = CommonsMusicSource()
+    private val youtube = YouTubeMusic(app)
+    private val _youtubeTracks = MutableStateFlow<List<YouTubeTrack>>(emptyList())
+    val youtubeTracks = _youtubeTracks.asStateFlow()
+    private val _youtubeLoading = MutableStateFlow(false)
+    val youtubeLoading = _youtubeLoading.asStateFlow()
+    private val _youtubeError = MutableStateFlow<String?>(null)
+    val youtubeError = _youtubeError.asStateFlow()
+    private val _youtubeNext = MutableStateFlow<Int?>(null)
+    val youtubeNext = _youtubeNext.asStateFlow()
+    private var youtubeJob: Job? = null
+    private var youtubeGeneration = 0L
     private val _catalog = MutableStateFlow<List<CatalogTrack>>(emptyList())
     val catalog = _catalog.asStateFlow()
     private val _catalogLoading = MutableStateFlow(false)
@@ -114,6 +125,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (c.isPlaying) c.pause() else { if (c.playbackState == Player.STATE_ENDED) c.seekTo(0);c.play() }
     }
     fun next() { controller?.let { if (it.hasNextMediaItem()) it.seekToNextMediaItem() } }
+    fun pauseForExternalPlayback() { pendingPlay = null;controller?.takeIf { it.isConnected }?.pause() }
     fun previous() { controller?.let { if (it.currentPosition > 3000 || !it.hasPreviousMediaItem()) it.seekTo(0) else it.seekToPreviousMediaItem() } }
     fun seek(position: Long) { controller?.seekTo(position.coerceAtLeast(0)) }
     fun shuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
@@ -148,13 +160,35 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         controller?.let { c -> val index = (0 until c.mediaItemCount).indexOfFirst { c.getMediaItemAt(it).mediaId == track.id };if (index >= 0) c.removeMediaItem(index) }
     }
     fun setWifi(value: Boolean) = runTask { app.settings.wifiOnly(value);coordinator.pauseAll();messages.emit("Preferencia guardada. Reanuda las descargas con la nueva red") }
-    fun setOffline(value: Boolean) = runTask { app.settings.offlineOnly(value);if (value) { cancelCatalogSearch();cancelResolve();coordinator.pauseAll() } }
+    fun setOffline(value: Boolean) = runTask { app.settings.offlineOnly(value);if (value) { cancelCatalogSearch();cancelYouTubeSearch();cancelResolve();coordinator.pauseAll() } }
     fun setQuality(value: String) = runTask { app.settings.quality(value) }
     fun setCatalog(value: String) = runTask {
         if (value.isNotBlank()) { val parsed = value.toHttpUrl();require(parsed.isHttps && parsed.username.isBlank() && parsed.password.isBlank()) { "Utiliza una dirección HTTPS sin credenciales" } }
         app.settings.catalogUrl(value);customCache = null;loadCatalog(catalogQuery);messages.emit("Fuente adicional guardada")
     }
     fun rememberSearch(value: String) = runTask { app.settings.rememberSearch(value) }
+    fun searchYouTube(query: String, append: Boolean = false) {
+        youtubeJob?.cancel();val generation = ++youtubeGeneration
+        if (query.isBlank()) { _youtubeTracks.value = emptyList();_youtubeNext.value = null;_youtubeError.value = null;_youtubeLoading.value = false;return }
+        youtubeJob = viewModelScope.launch {
+            val offset = if (append) _youtubeNext.value ?: return@launch else 0
+            if (!append) { _youtubeTracks.value = emptyList();_youtubeNext.value = null }
+            _youtubeLoading.value = true;_youtubeError.value = null
+            try {
+                check(!app.settings.settings.first().offlineOnly) { "YouTube necesita conexión a internet" }
+                val page = youtube.search(query, offset)
+                _youtubeTracks.value = (_youtubeTracks.value + page.tracks).distinctBy { it.id };_youtubeNext.value = page.nextOffset
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _youtubeError.value = "No se pudo buscar en YouTube. Comprueba tu conexión; si persiste, el motor puede necesitar actualizarse. También puedes abrir la búsqueda en YouTube" }
+            finally { if (generation == youtubeGeneration) _youtubeLoading.value = false }
+        }
+    }
+    fun cancelYouTubeSearch() { youtubeGeneration++;youtubeJob?.cancel();_youtubeLoading.value = false }
+    fun downloadYouTube(track: YouTubeTrack, requestId: String? = null) = runTask {
+        val id = coordinator.enqueueYouTube(track, app.settings.settings.first(), requestId)
+        messages.emit(if (repo.dao.track(id) != null) "MP3 disponible sin conexión" else "Descarga y conversión a MP3 añadidas. Consulta Descargas")
+        if (requestId != null) clearSearchTarget()
+    }
     fun loadCatalog(query: String = catalogQuery, append: Boolean = false) {
         catalogJob?.cancel();catalogQuery = query
         val generation = ++catalogGeneration

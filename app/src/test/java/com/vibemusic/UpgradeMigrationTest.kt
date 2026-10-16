@@ -37,7 +37,7 @@ class UpgradeMigrationTest {
             })
             old.version = 1
         }
-        val db = Room.databaseBuilder(context, VibeDatabase::class.java, name).addMigrations(VibeDatabase.MIGRATION_1_2).allowMainThreadQueries().build()
+        val db = Room.databaseBuilder(context, VibeDatabase::class.java, name).addMigrations(VibeDatabase.MIGRATION_1_2, VibeDatabase.MIGRATION_2_3).allowMainThreadQueries().build()
         try {
             val track = db.music().track("kept")!!
             assertTrue(track.favorite);assertEquals(3, track.playCount);assertEquals("/music/kept.mp3", track.localPath)
@@ -45,7 +45,31 @@ class UpgradeMigrationTest {
             val download = db.music().download("download")!!
             assertEquals("paused", download.state);assertEquals(123L, download.downloadedBytes);assertEquals("SHA-256", download.hashAlgorithm)
             assertNull(download.savedTrackId)
+            assertEquals("catalog", download.provider);assertNull(download.progressPercent)
             assertTrue(db.music().requests().isEmpty())
+        } finally { db.close();context.deleteDatabase(name) }
+    }
+    @Test fun upgradesVersionTwoAndPreservesPendingSpotifyEntries() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "upgrade-v2.db";context.deleteDatabase(name)
+        val path = context.getDatabasePath(name);path.parentFile!!.mkdirs()
+        val schema = JSONObject(File("schemas/com.vibemusic.data.VibeDatabase/2.json").readText()).getJSONObject("database")
+        SQLiteDatabase.openOrCreateDatabase(path, null).use { old ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i);val table = entity.getString("tableName")
+                old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                val indexes = entity.getJSONArray("indices");for (j in 0 until indexes.length()) old.execSQL(indexes.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+            }
+            val setup = schema.getJSONArray("setupQueries");for (i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            old.execSQL("INSERT INTO playlists (id,name,createdAt) VALUES ('list','Spotify',1)")
+            old.execSQL("INSERT INTO playlist_requests (id,playlistId,title,artist,album,position) VALUES ('pending','list','Mi canción','Mi artista','Mi álbum',7)")
+            old.version = 2
+        }
+        val db = Room.databaseBuilder(context, VibeDatabase::class.java, name).addMigrations(VibeDatabase.MIGRATION_2_3).allowMainThreadQueries().build()
+        try {
+            val pending = db.music().requests().single()
+            assertEquals("Mi canción", pending.title);assertEquals(7, pending.position);assertNull(pending.trackId)
         } finally { db.close();context.deleteDatabase(name) }
     }
 }

@@ -7,8 +7,9 @@
 - `data/`: Room (canciones, playlists, relaciones ordenadas y trabajos de descarga),
   DataStore (preferencias y búsquedas recientes), MusicRepository (importación,
   metadatos y archivos), CatalogRepository (fuentes adicionales e incluidas),
-  CommonsMusicSource (API pública HTTPS) y PlaylistTransferRepository (CSV/JSON).
-  Room versión 2 migra explícitamente la versión 1 sin borrar datos. Las entradas
+  CommonsMusicSource (API pública HTTPS), YouTubeMusic (búsqueda y conversión
+  nativa con yt-dlp/FFmpeg) y PlaylistTransferRepository (CSV/JSON).
+  Room versión 3 migra explícitamente las versiones 1 y 2 sin borrar datos. Las entradas
   importadas aún sin audio viven en playlist_requests, ordenadas y persistentes.
 - `playback/`: un ExoPlayer alojado en MediaSessionService. Media3 publica la sesión,
   notificación, metadatos y controles del sistema. Se administra el foco de audio y
@@ -18,6 +19,10 @@
   progreso persistente y comprobación de la huella autorizada (SHA-256 o SHA-1 de
   Wikimedia). También calcula SHA-256 para deduplicar todos los archivos por contenido.
   Guarda el ID real de la canción completada incluso si ya existía con otro origen.
+  Las tareas YouTube se identifican por proveedor y conservan su URL canónica,
+  porcentaje y fase. Su huella SHA-256 es local para deduplicación; no se inventa
+  un checksum externo. El MP3 solo se registra después de terminar la conversión
+  y validar metadatos con Android. Una plaza limita conversiones concurrentes.
 
 Los archivos importados se copian desde el Storage Access Framework. No se piden
 permisos de acceso global al almacenamiento ni READ_MEDIA_AUDIO. Se deduplican por

@@ -42,11 +42,12 @@ interface MusicDao {
     @Query("UPDATE downloads SET state = :state, error = :error WHERE id = :id") suspend fun downloadState(id: String, state: String, error: String? = null)
     @Query("UPDATE downloads SET state = 'completed', savedTrackId = :trackId, error = NULL WHERE id = :id") suspend fun completeDownload(id: String, trackId: String)
     @Query("UPDATE downloads SET downloadedBytes = :bytes, totalBytes = :total, etag = :etag WHERE id = :id") suspend fun progress(id: String, bytes: Long, total: Long, etag: String?)
+    @Query("UPDATE downloads SET progressPercent = :percent, error = :stage WHERE id = :id AND state = 'downloading'") suspend fun conversionProgress(id: String, percent: Float?, stage: String)
     @Query("DELETE FROM downloads WHERE id = :id") suspend fun deleteDownload(id: String)
     @Query("DELETE FROM downloads WHERE id = :trackId OR savedTrackId = :trackId") suspend fun deleteDownloadsForTrack(trackId: String)
 }
 
-@Database(entities = [Track::class, Playlist::class, PlaylistTrack::class, DownloadEntry::class, PlaylistRequest::class], version = 2, exportSchema = true)
+@Database(entities = [Track::class, Playlist::class, PlaylistTrack::class, DownloadEntry::class, PlaylistRequest::class], version = 3, exportSchema = true)
 abstract class VibeDatabase : RoomDatabase() {
     abstract fun music(): MusicDao
     companion object {
@@ -62,6 +63,12 @@ abstract class VibeDatabase : RoomDatabase() {
             }
         }
 
-        fun open(context: Context): VibeDatabase = Room.databaseBuilder(context, VibeDatabase::class.java, "vibe-music.db").addMigrations(MIGRATION_1_2).build()
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloads ADD COLUMN provider TEXT NOT NULL DEFAULT 'catalog'")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN progressPercent REAL")
+            }
+        }
+        fun open(context: Context): VibeDatabase = Room.databaseBuilder(context, VibeDatabase::class.java, "vibe-music.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }
