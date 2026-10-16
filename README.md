@@ -7,10 +7,13 @@ y reproducción real con Media3.
 ## Instalar en el teléfono
 
 El APK de esta entrega se encuentra en
-[`releases/Vibe-Music-1.0.0-debug.apk`](releases/Vibe-Music-1.0.0-debug.apk?raw=true).
+[`releases/Vibe-Music-1.1.0-debug.apk`](releases/Vibe-Music-1.1.0-debug.apk?raw=true).
 Descárgalo en tu Android, abre el archivo y permite instalar aplicaciones desde el
 navegador/gestor de archivos cuando Android lo solicite. Es una compilación de
 pruebas firmada con una clave de depuración, no una publicación de Google Play.
+La versión 1.1.0 actualiza la 1.0.0 conservando la biblioteca; no la desinstales.
+Si GitHub muestra 404, inicia sesión con una cuenta que tenga acceso al repositorio
+y vuelve a abrir el enlace. La app no necesita acceso a GitHub para buscar música.
 
 También puedes instalar el APK compilado con depuración USB:
 
@@ -27,7 +30,12 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 ## Funciones
 
 - Inicio con filtros, colecciones recientes, favoritas y álbumes guardados.
-- Buscar instantáneamente canciones, artistas, álbumes y playlists locales.
+- Buscar en **Todo** (opción inicial), **Mi música** o **En línea**. La búsqueda
+  pública consulta Wikimedia Commons por canción o artista, con paginación,
+  cancelación de consultas antiguas, errores visibles y reintento.
+- Importar playlists de Spotify mediante CSV de Exportify o JSON de los datos
+  de tu cuenta. Conserva el orden y los títulos pendientes; vincula archivos
+  locales y permite buscar coincidencias autorizadas. Exporta playlists a CSV.
 - Biblioteca con favoritos y playlists persistentes: crear, renombrar, cambiar
   portada, añadir/quitar y reordenar canciones.
 - Minirreproductor y reproductor completo con progreso interactivo, cola,
@@ -36,14 +44,16 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
   multimedia de Android. Foco de audio y pausa al desconectar auriculares.
 - Recuperación de cola y posición; la reproducción se reanuda por decisión del usuario.
 - Descargas persistentes desde catálogos autorizados: progreso, pausa/reanudación,
-  cancelación, deduplicación, comprobación SHA-256 y eliminación individual.
+  cancelación, deduplicación, comprobación de integridad y eliminación individual.
 - Preferencias de Wi-Fi, calidad disponible en la fuente y modo sin conexión.
 - Licencias y atribuciones conservadas en el dispositivo.
 
-Se incluye un catálogo público de Vibe Originals listo para descargar desde Buscar.
-Puedes sustituirlo por otra fuente autorizada mediante un manifiesto HTTPS. No hace falta
-ninguna API para la música local. Consulta [el formato y ejemplo real del catálogo](docs/CATALOG.md).
-No se descargan canciones de Spotify ni YouTube. La app tiene marca, icono,
+Se incluyen tres Vibe Originals en el APK, disponibles desde Buscar incluso sin red.
+La búsqueda pública utiliza Wikimedia Commons sin claves de API; puedes añadir otra
+fuente autorizada mediante un manifiesto HTTPS. Consulta [las fuentes y las descargas](docs/CATALOG.md).
+Commons no contiene todo el catálogo comercial de Spotify. La importación de Spotify
+traslada títulos y artistas, no sus archivos de audio; consulta [la guía de importación](docs/SPOTIFY.md).
+La app tiene marca, icono,
 composiciones y portadas generativas propios.
 
 ## Abrir en Android Studio
@@ -91,6 +101,7 @@ están en [docs/DEVICE_TESTS.md](docs/DEVICE_TESTS.md).
 - [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION.md)
 - [Arquitectura y persistencia](docs/ARCHITECTURE.md)
 - [Catálogos legales y descargas](docs/CATALOG.md)
+- [Importar y exportar playlists de Spotify](docs/SPOTIFY.md)
 - [Requisitos originales](docs/PRODUCT_REQUIREMENTS.md)
 
 Código MIT. Audio original incluido: CC0-1.0. Las dependencias mantienen sus licencias.

@@ -61,4 +61,28 @@ class VerifiedDownloadTest {
     @Test fun rejectsCleartextTransport() {
         assertThrows(IllegalArgumentException::class.java) { runBlocking { VerifiedDownload(client).transfer(entry().copy(url = "http://localhost/audio"), partial) { _, _, _ -> } } }
     }
+    @Test fun verifiesAuthoritativeSha1ButReturnsSha256ForLibraryDeduplication() = runBlocking {
+        server.enqueue(MockResponse().setBody(audio))
+        val sha1 = MessageDigest.getInstance("SHA-1").digest(audio.toByteArray()).joinToString("") { "%02x".format(it) }
+        val result = VerifiedDownload(client).transfer(entry().copy(expectedSha256 = sha1, hashAlgorithm = "SHA-1"), partial) { _, _, _ -> }
+        assertEquals(entry().expectedSha256, result)
+    }
+    @Test fun completesAWholeVerifiedPartialWithoutRequestingAnInvalidRange() = runBlocking {
+        partial.writeText(audio)
+        val result = VerifiedDownload(client).transfer(entry("\"v1\"").copy(totalBytes = audio.length.toLong()), partial) { _, _, _ -> }
+        assertEquals(entry().expectedSha256, result);assertEquals(0, server.requestCount)
+    }
+    @Test fun restartsCorruptedWholePartialInsteadOfAcceptingIt() = runBlocking {
+        partial.writeText("x".repeat(audio.length));server.enqueue(MockResponse().setBody(audio))
+        VerifiedDownload(client).transfer(entry().copy(totalBytes = audio.length.toLong()), partial) { _, _, _ -> }
+        assertEquals(audio, partial.readText());assertEquals(1, server.requestCount)
+    }
+    @Test fun preservesPartialAndPropagatesCancellationWithoutMarkingItVerified() {
+        server.enqueue(MockResponse().setBody(audio).throttleBody(4, 200, java.util.concurrent.TimeUnit.MILLISECONDS))
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) {
+            runBlocking { VerifiedDownload(client).transfer(entry(), partial) { _, _, _ -> throw kotlinx.coroutines.CancellationException("paused") } }
+        }
+        assertTrue(partial.length() > 0);assertTrue(partial.length() < audio.length)
+    }
+
 }

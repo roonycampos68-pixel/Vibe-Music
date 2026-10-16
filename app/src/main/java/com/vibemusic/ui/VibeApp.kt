@@ -40,17 +40,22 @@ import com.vibemusic.model.*
     var options by remember { mutableStateOf<Track?>(null) }
     var addTo by remember { mutableStateOf<Track?>(null) }
     var playlistName by rememberSaveable { mutableStateOf("") }
+    var newPlaylistTrackId by rememberSaveable { mutableStateOf<String?>(null) }
+    var spotifyImportOpen by rememberSaveable { mutableStateOf(false) }
+    var exportForId by rememberSaveable { mutableStateOf<String?>(null) }
+    var coverForId by rememberSaveable { mutableStateOf<String?>(null) }
     var createPlaylist by rememberSaveable { mutableStateOf(false) }
     var renamePlaylist by remember { mutableStateOf<Playlist?>(null) }
     var deletePlaylist by remember { mutableStateOf<Playlist?>(null) }
     var deleteTrack by remember { mutableStateOf<Track?>(null) }
-    var coverFor by remember { mutableStateOf<Playlist?>(null) }
     var addSongs by remember { mutableStateOf<Playlist?>(null) }
     val snack = remember { SnackbarHostState() }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) vm.import(uris) }
-    val cover = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) coverFor?.let { vm.playlistArt(it, uri) };coverFor = null }
+    val cover = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) coverForId?.let { vm.playlistArtById(it, uri) };coverForId = null }
+    val playlistFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importPlaylistFile(uri) }
+    val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> if (uri != null) exportForId?.let { vm.exportPlaylistById(it, uri) };exportForId = null }
     val importMusic = { import.launch(arrayOf("audio/*")) }
-    val newPlaylist = { playlistName = "";createPlaylist = true }
+    val newPlaylist = { playlistName = "";newPlaylistTrackId = null;createPlaylist = true }
     LaunchedEffect(vm) { vm.messages.collect { snack.showSnackbar(it) } }
     BackHandler(settingsOpen || collection != null) { settingsOpen = false;collectionKind = null }
     Scaffold(containerColor = VibeBackground, snackbarHost = { SnackbarHost(snack) }, contentWindowInsets = WindowInsets.safeDrawing, bottomBar = {
@@ -66,17 +71,21 @@ import com.vibemusic.model.*
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 settingsOpen -> SettingsScreen(vm, settings, tracks, { settingsOpen = false }, { settingsOpen = false;tab = 3 })
-                collection != null -> CollectionScreen(collection, tracks, playlists, members, vm, playback, { collectionKind = null }, { options = it }, { renamePlaylist = it;playlistName = it.name }, { coverFor = it;cover.launch(arrayOf("image/*")) }, { deletePlaylist = it }, { addSongs = it })
+                collection != null -> CollectionScreen(collection, tracks, playlists, members, vm, playback, { collectionKind = null }, { options = it }, { renamePlaylist = it;playlistName = it.name }, { coverForId = it.id;cover.launch(arrayOf("image/*")) }, { deletePlaylist = it }, { addSongs = it },
+                    onSearchRequest = { vm.searchForRequest(it);collectionKind = null;tab = 1 },
+                    onExport = { exportForId = it.id;exportFile.launch("${it.name.replace(Regex("[^\\p{L}\\p{N} _-]"), "_")}.csv") },
+                    onDownloads = { collectionKind = null;tab = 3 })
                 else -> Crossfade(tab, label = "Navegación") { page -> when (page) {
-                    0 -> HomeScreen(tracks, playlists, playback, busy, importMusic, vm::addOriginals, { settingsOpen = true }, ::openCollection, { list, index -> vm.play(list, index) }, { options = it })
-                    1 -> SearchScreen(vm, tracks, playlists, playback, ::openCollection, { options = it }, { settingsOpen = true })
-                    2 -> LibraryScreen(tracks, playlists, busy, importMusic, newPlaylist, ::openCollection)
+                    0 -> HomeScreen(tracks, playlists, playback, busy, importMusic, vm::addOriginals, { settingsOpen = true }, ::openCollection, { list, index -> vm.play(list, index) }, { options = it }, downloadedIds = downloads.filter { it.state == "completed" }.mapNotNull { it.savedTrackId }.toSet())
+                    1 -> SearchScreen(vm, tracks, playlists, playback, ::openCollection, { options = it }, { settingsOpen = true }, importMusic, { spotifyImportOpen = true })
+                    2 -> LibraryScreen(tracks, playlists, busy, importMusic, newPlaylist, ::openCollection, onSpotify = { spotifyImportOpen = true }, downloadedIds = downloads.filter { it.state == "completed" }.mapNotNull { it.savedTrackId }.toSet())
                     3 -> DownloadsScreen(vm, tracks, downloads, playback, { options = it }, { tab = 1 })
                 } }
             }
         }
     }
     tracks.find { it.id == playback.currentId }?.let { current -> if (playerOpen) PlayerScreen(current, playback, tracks, vm, { playerOpen = false }, { options = it }, { playerOpen = false;openCollection(Collection("album", current.album, current.album)) }) }
+    if (spotifyImportOpen) SpotifyImportDialog({ spotifyImportOpen = false }, { spotifyImportOpen = false;playlistFile.launch(arrayOf("*/*")) }, { vm.messages.tryEmit(it) })
     options?.let { selected ->
         val track = tracks.find { it.id == selected.id } ?: selected
         AlertDialog(onDismissRequest = { options = null }, title = { Text(track.title) }, text = {
@@ -90,10 +99,10 @@ import com.vibemusic.model.*
             }
         }, confirmButton = { TextButton({ options = null }) { Text("Cerrar") } })
     }
-    if (createPlaylist || renamePlaylist != null) AlertDialog(onDismissRequest = { createPlaylist = false;renamePlaylist = null }, title = { Text(if (renamePlaylist == null) "Crear playlist" else "Renombrar playlist") }, text = { OutlinedTextField(playlistName, { playlistName = it.take(100) }, label = { Text("Nombre de la playlist") }, singleLine = true) }, confirmButton = { TextButton({ val p = renamePlaylist;if (p == null) vm.createPlaylist(playlistName) else vm.rename(p, playlistName);createPlaylist = false;renamePlaylist = null }, enabled = playlistName.isNotBlank()) { Text("Guardar") } }, dismissButton = { TextButton({ createPlaylist = false;renamePlaylist = null }) { Text("Cancelar") } })
+    if (createPlaylist || renamePlaylist != null) AlertDialog(onDismissRequest = { createPlaylist = false;renamePlaylist = null }, title = { Text(if (renamePlaylist == null) "Crear playlist" else "Renombrar playlist") }, text = { OutlinedTextField(playlistName, { playlistName = it.take(100) }, label = { Text("Nombre de la playlist") }, singleLine = true) }, confirmButton = { TextButton({ val p = renamePlaylist;if (p == null) vm.createPlaylist(playlistName, newPlaylistTrackId) else vm.rename(p, playlistName);createPlaylist = false;renamePlaylist = null;newPlaylistTrackId = null }, enabled = playlistName.isNotBlank()) { Text("Guardar") } }, dismissButton = { TextButton({ createPlaylist = false;renamePlaylist = null }) { Text("Cancelar") } })
     addTo?.let { track -> AlertDialog(onDismissRequest = { addTo = null }, title = { Text("Añadir a playlist") }, text = {
         LazyColumn { items(playlists, key = { it.id }) { playlist -> ListItem(headlineContent = { Text(playlist.name) }, leadingContent = { Icon(Icons.Rounded.QueueMusic, null) }, modifier = Modifier.clickable { vm.addToPlaylist(playlist, track);addTo = null }) };if (playlists.isEmpty()) item { Text("Crea tu primera playlist en Tu biblioteca.", color = VibeMuted) } }
-    }, confirmButton = { TextButton({ addTo = null;newPlaylist() }) { Text("Nueva playlist") } }, dismissButton = { TextButton({ addTo = null }) { Text("Cerrar") } }) }
+    }, confirmButton = { TextButton({ newPlaylistTrackId = track.id;addTo = null;playlistName = "";createPlaylist = true }) { Text("Nueva playlist") } }, dismissButton = { TextButton({ addTo = null }) { Text("Cerrar") } }) }
     addSongs?.let { playlist ->
         val existing = members.filter { it.playlistId == playlist.id }.map { it.trackId }.toSet()
         AlertDialog(onDismissRequest = { addSongs = null }, title = { Text("Añadir canciones") }, text = {

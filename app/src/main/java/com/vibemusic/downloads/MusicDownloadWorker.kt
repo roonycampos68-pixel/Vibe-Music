@@ -8,19 +8,17 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.core.app.NotificationCompat
 import androidx.work.*
+import androidx.room.withTransaction
 import com.vibemusic.R
 import com.vibemusic.VibeApplication
 import com.vibemusic.data.MusicRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -33,7 +31,7 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         if (entry.state == "paused" || app.settings.settings.first().offlineOnly) return@withContext Result.success()
         val manager = applicationContext.getSystemService(ConnectivityManager::class.java)
         val caps = manager.getNetworkCapabilities(manager.activeNetwork)
-        if (inputData.getBoolean("wifiOnly", true) && caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
+        if (app.settings.settings.first().wifiOnly && caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
             dao.downloadState(id, "queued", "Esperando una red Wi-Fi")
             return@withContext Result.retry()
         }
@@ -43,27 +41,41 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         try {
             setForeground(foreground(entry.title))
             dao.downloadState(id, "downloading")
-            VerifiedDownload(client).transfer(entry, partial) { bytes, total, etag -> dao.progress(id, bytes, total, etag) }
-            val hash = entry.expectedSha256
+            val hash = VerifiedDownload(client).transfer(entry, partial) { bytes, total, etag -> dao.progress(id, bytes, total, etag) }
             val existing = dao.byHash(hash)
             if (existing == null) {
                 val target = File(app.repository.musicDir, "$id.audio")
                 check(partial.renameTo(target)) { "No se pudo guardar el audio" }
                 try {
                     val track = app.repository.metadata(target, hash, entry.title, "download", entry)
-                    val inserted = dao.insertTrack(track)
-                    if (inserted == -1L && dao.byHash(hash)?.localPath != target.absolutePath) target.delete()
-                } catch (e: Exception) { target.delete(); throw e }
-            } else partial.delete()
-            dao.downloadState(id, "completed")
+                    val saved = app.database.withTransaction {
+                        val inserted = dao.insertTrack(track)
+                        val saved = if (inserted == -1L) dao.byHash(hash) ?: error("No se pudo registrar la canción") else track
+                        com.vibemusic.data.PlaylistLinks.reconcile(app.database, saved, id)
+                        dao.completeDownload(id, saved.id)
+                        saved
+                    }
+                    if (saved.localPath != target.absolutePath) target.delete()
+                } catch (e: Exception) {
+                    // A cancellation just after committing must not erase registered audio.
+                    withContext(NonCancellable) { if (dao.byHash(hash)?.localPath != target.absolutePath) target.delete() }
+                    throw e
+                }
+            } else {
+                app.database.withTransaction {
+                    com.vibemusic.data.PlaylistLinks.reconcile(app.database, existing, id)
+                    dao.completeDownload(id, existing.id)
+                }
+                partial.delete()
+            }
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (e: IOException) {
             if (runAttemptCount < 3) {
-                dao.downloadState(id, "queued", "Sin conexión. Se reintentará automáticamente")
+                dao.downloadState(id, "queued", "Transferencia interrumpida. Se reintentará automáticamente")
                 Result.retry()
             } else {
-                dao.downloadState(id, "failed", "No se pudo conectar. Puedes reintentar la descarga")
+                dao.downloadState(id, "failed", "No se pudo transferir el archivo. Comprueba la conexión y el espacio disponible")
                 Result.failure()
             }
         }
@@ -76,6 +88,6 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("downloads", "Descargas de música", NotificationManager.IMPORTANCE_LOW))
         val notification = NotificationCompat.Builder(applicationContext, "downloads").setContentTitle("Descargando $title").setContentText("Vibe Music · Puedes pausar desde Descargas").setSmallIcon(R.drawable.ic_notification).setOngoing(true).setProgress(0, 0, true).build()
-        return if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(42, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(42, notification)
+        return if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(id.hashCode() and 0x7fffffff, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(id.hashCode() and 0x7fffffff, notification)
     }
 }

@@ -32,7 +32,10 @@ No borres datos de una instalación que contenga tu biblioteca personal.
    biblioteca, playlists, favoritos, cola y posición. Pulsar reproducir.
 4. Apagar la pantalla durante al menos un minuto y escuchar la continuidad.
 5. Cambiar a otra app y comprobar el sonido y la notificación multimedia.
-6. Configurar un catálogo propio HTTPS con permiso de distribución. Descargar,
+6. Buscar por título/artista con el filtro inicial Todo. Verificar resultados
+   locales, audio incluido y Wikimedia; probar En línea, Mi música, acentos,
+   cambios rápidos de consulta, paginación, errores y reintento. Descargar desde
+   una fuente con permiso. También probar un catálogo propio HTTPS. Descargar,
    pausar/reanudar y cancelar. Revisar progreso, calidad, checksum y ausencia de
    duplicados. Probar una fuente sin soporte Range para verificar el reinicio.
 7. Activar modo avión, cerrar/abrir la app y reproducir la descarga desde Descargas.
@@ -45,5 +48,22 @@ No borres datos de una instalación que contenga tu biblioteca personal.
 
 Repetir en Android 8, 10, 13 y 15 o posteriores, distintos tamaños de pantalla y
 con políticas de batería del fabricante. Las pruebas de llamadas y Bluetooth
-necesitan hardware real. El catálogo del proyecto solo es accesible públicamente
-si el repositorio es público; de lo contrario, utilizar un servidor propio.
+necesitan hardware real. Las fuentes predeterminadas ya no dependen del acceso
+al repositorio de GitHub.
+
+## Regresión de la versión 1.1.0
+
+1. Instalar el APK 1.0.0 y crear biblioteca, favoritos y playlists. Actualizar con
+   el APK 1.1.0 mediante `adb install -r` o abriéndolo en el teléfono. Verificar que
+   Android acepta la firma y conserva todo sin desinstalar ni borrar datos.
+2. Exportar una playlist propia de Spotify como CSV de Exportify y usar el selector
+   de documentos de Vibe. Comprobar acentos, comillas, álbumes, orden, recuentos y
+   títulos pendientes. Repetir con el JSON de datos de cuenta extraído del ZIP.
+3. Importar un archivo local que coincida con un pendiente y verificar su vinculación.
+   Buscar un pendiente manualmente, elegir una fuente autorizada y verificar que
+   la descarga aparece tanto en la lista como en Descargas, también tras reiniciar.
+4. Probar búsqueda por lotes, cancelar, cambiar a modo sin conexión y comprobar
+   que se detienen las consultas. Los títulos sin audio deben seguir pendientes.
+5. Exportar la lista a CSV, reimportarla y comparar su orden y los pendientes.
+   Eliminar audio vinculado debe conservar el título; eliminar la playlist debe
+   conservar el audio de la biblioteca.

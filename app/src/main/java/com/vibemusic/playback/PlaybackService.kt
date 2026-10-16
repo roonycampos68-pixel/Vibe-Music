@@ -71,7 +71,8 @@ class PlaybackService : MediaSessionService() {
             if (player.mediaItemCount == 0 && saved.isNotEmpty()) {
                 val current = preferences.getString("currentId", null)
                 val index = saved.indexOfFirst { it.id == current }.coerceAtLeast(0)
-                player.setMediaItems(saved.map { it.toMediaItem() }, index, preferences.getLong("position", 0).coerceAtLeast(0))
+                val position = if (saved[index].id == current) preferences.getLong("position", 0).coerceIn(0, saved[index].durationMs) else 0L
+                player.setMediaItems(saved.map { it.toMediaItem() }, index, position)
                 player.shuffleModeEnabled = preferences.getBoolean("shuffle", false)
                 player.repeatMode = preferences.getInt("repeat", Player.REPEAT_MODE_OFF)
                 player.prepare()
@@ -93,7 +94,7 @@ class PlaybackService : MediaSessionService() {
         if (!player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED) { persist();stopSelf() }
     }
     override fun onDestroy() {
-        persist();handler.removeCallbacks(sleep);scope.cancel();session?.release();player.release();session = null
+        persist();restoring = true;handler.removeCallbacks(sleep);scope.cancel();session?.release();player.release();session = null
         super.onDestroy()
     }
 }

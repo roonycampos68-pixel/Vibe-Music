@@ -21,7 +21,8 @@ import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 
 @Composable fun DownloadsScreen(vm: MusicViewModel, tracks: List<Track>, downloads: List<DownloadEntry>, playback: PlaybackState, onMore: (Track) -> Unit, onSearch: () -> Unit) {
-    val offline = tracks.filter { it.source == "download" }
+    val downloadedIds = downloads.filter { it.state == "completed" }.mapNotNull { it.savedTrackId }.toSet()
+    val offline = tracks.filter { it.source == "download" || it.id in downloadedIds }
     val settings by vm.settings.collectAsState()
     val filesPath = LocalContext.current.filesDir.path
     val totalStorage = remember(filesPath) { android.os.StatFs(filesPath).totalBytes.toFloat() }
@@ -55,16 +56,17 @@ import androidx.compose.ui.platform.LocalContext
                     IconAction(if (entry.state in listOf("queued", "downloading")) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (entry.state in listOf("queued", "downloading")) "Pausar descarga" else "Reanudar descarga", { if (entry.state in listOf("queued", "downloading")) vm.pauseDownload(entry.id) else vm.resumeDownload(entry.id) })
                     IconAction(Icons.Rounded.Close, "Cancelar descarga", { vm.cancelDownload(entry.id) })
                 }
-                entry.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+                entry.error?.let { Text(it, color = if (entry.state == "failed") MaterialTheme.colorScheme.error else VibeMuted, fontSize = 12.sp) }
             }
         }
         item { SectionTitle("Disponibles sin internet") }
         items(offline, key = { it.id }) { track -> TrackRow(track, track.id == playback.currentId, { vm.play(offline, offline.indexOf(track)) }, { onMore(track) }) }
-        if (offline.isEmpty()) item { EmptyState(Icons.Rounded.DownloadForOffline, "Llévate la música contigo", "Conecta un catálogo autorizado y descarga sus archivos. Tu música importada también funciona sin internet desde Tu biblioteca.", "Explorar catálogos", onSearch) }
+        if (offline.isEmpty()) item { EmptyState(Icons.Rounded.DownloadForOffline, "Llévate la música contigo", "Busca audio con permiso de descarga en Buscar. Los archivos que importes también funcionan sin internet desde Tu biblioteca.", "Explorar catálogos", onSearch) }
     }
 }
 
 @Composable fun SettingsScreen(vm: MusicViewModel, settings: Settings, tracks: List<Track>, onBack: () -> Unit, onDownloads: () -> Unit) {
+    val downloads by vm.downloads.collectAsState()
     var catalogDialog by remember { mutableStateOf(false) }
     var catalogUrl by remember(settings.catalogUrl) { mutableStateOf(settings.catalogUrl) }
     var sleepDialog by remember { mutableStateOf(false) }
@@ -85,15 +87,15 @@ import androidx.compose.ui.platform.LocalContext
             ListItem(headlineContent = { Text(MusicRules.formatSize(tracks.sumOf { it.sizeBytes })) }, supportingContent = { Text("${tracks.size} archivos en el almacenamiento privado") }, leadingContent = { Icon(Icons.Rounded.Storage, null) })
             ListItem(headlineContent = { Text("Administrar descargas") }, trailingContent = { Icon(Icons.Rounded.ChevronRight, null) }, modifier = Modifier.clickable(onClick = onDownloads))
             SectionTitle("Catálogos y permisos")
-            ListItem(headlineContent = { Text("Fuente de música autorizada") }, supportingContent = { Text(if (settings.catalogUrl.isBlank()) "Sin configurar · La música local ya funciona" else "Catálogo HTTPS configurado") }, leadingContent = { Icon(Icons.Rounded.CloudDownload, null) }, modifier = Modifier.clickable { catalogDialog = true })
+            ListItem(headlineContent = { Text("Fuente adicional (opcional)") }, supportingContent = { Text(if (settings.catalogUrl.isBlank()) "Wikimedia y el audio incluido ya están disponibles" else "Catálogo HTTPS adicional configurado") }, leadingContent = { Icon(Icons.Rounded.CloudDownload, null) }, modifier = Modifier.clickable { catalogDialog = true })
             ListItem(headlineContent = { Text("Licencias y atribuciones") }, supportingContent = { Text("Consulta los permisos de tu música") }, modifier = Modifier.clickable { licenses = true })
             SectionTitle("Acerca de Vibe Music")
-            Text("Versión 1.0.0\nReproductor independiente para tu propia música. Sin cuenta y sin suscripción.\n\nTus archivos, playlists y favoritos se guardan solo en este dispositivo. Desinstalar la app elimina su almacenamiento privado.\n\nMP3 · M4A · AAC · FLAC · WAV · OGG\nLa compatibilidad depende de los códecs del dispositivo.", color = VibeMuted, fontSize = 13.sp, lineHeight = 21.sp)
+            Text("Versión ${com.vibemusic.BuildConfig.VERSION_NAME}\nReproductor independiente para tu propia música. Sin cuenta y sin suscripción.\n\nTus archivos, playlists y favoritos se guardan solo en este dispositivo. Desinstalar la app elimina su almacenamiento privado.\n\nMP3 · M4A · AAC · FLAC · WAV · OGG\nLa compatibilidad depende de los códecs del dispositivo.", color = VibeMuted, fontSize = 13.sp, lineHeight = 21.sp)
         }
     }
-    if (catalogDialog) AlertDialog(onDismissRequest = { catalogDialog = false }, title = { Text("Catálogo autorizado") }, text = {
+    if (catalogDialog) AlertDialog(onDismissRequest = { catalogDialog = false }, title = { Text("Fuente adicional") }, text = {
         Column {
-            Text("Introduce la URL HTTPS de un manifiesto compatible con Vibe Music. Debe declarar la autorización, licencia, atribución y SHA-256 de cada archivo. Consulta docs/CATALOG.md en el proyecto.", color = VibeMuted, fontSize = 13.sp)
+            Text("Vibe ya ofrece búsqueda pública en Wikimedia Commons y audio original incluido. Opcionalmente añade la URL HTTPS de otro catálogo autorizado compatible; déjala vacía para usar las fuentes predeterminadas.", color = VibeMuted, fontSize = 13.sp)
             Spacer(Modifier.height(14.dp));OutlinedTextField(catalogUrl, { catalogUrl = it }, label = { Text("Dirección HTTPS") }, singleLine = true)
             Text("Usa únicamente fuentes del titular o un distribuidor con permiso. No añadas claves privadas a la URL.", color = VibeMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
@@ -114,6 +116,12 @@ import androidx.compose.ui.platform.LocalContext
                 Column(Modifier.padding(top = 16.dp)) {
                     Text(track.title, fontWeight = FontWeight.Bold);Text("${track.license}\n${track.attribution.orEmpty()}", fontSize = 12.sp, color = VibeMuted)
                     track.licenseUrl?.let { url -> TextButton({ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }) { Text("Consultar licencia") } }
+                }
+            }
+            items(downloads.filter { it.state == "completed" && tracks.any { track -> track.id == it.savedTrackId && track.license == null } }, key = { "download-license-${it.id}" }) { entry ->
+                Column(Modifier.padding(top = 16.dp)) {
+                    Text(entry.title, fontWeight = FontWeight.Bold);Text("${entry.license}\n${entry.attribution}", fontSize = 12.sp, color = VibeMuted)
+                    TextButton({ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(entry.licenseUrl))) } }) { Text("Consultar licencia") }
                 }
             }
         }

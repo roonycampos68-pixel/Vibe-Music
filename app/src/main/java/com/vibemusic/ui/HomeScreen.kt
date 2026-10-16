@@ -29,19 +29,19 @@ import java.time.LocalTime
 
 /** A collection is derived from the durable library, never a fabricated remote playlist. */
 data class Collection(val kind: String, val key: String = "", val title: String)
-fun Collection.select(tracks: List<Track>, members: List<PlaylistTrack>): List<Track> = when (kind) {
+fun Collection.select(tracks: List<Track>, members: List<PlaylistTrack>, downloadedIds: Set<String> = emptySet()): List<Track> = when (kind) {
     "favorite" -> tracks.filter { it.favorite }
     "album" -> tracks.filter { it.album == key }
     "artist" -> tracks.filter { it.artist == key }
     "playlist" -> members.filter { it.playlistId == key }.sortedBy { it.position }.mapNotNull { m -> tracks.find { it.id == m.trackId } }
     "recent" -> tracks.filter { it.lastPlayedAt > 0 }.sortedByDescending { it.lastPlayedAt }
     "import" -> tracks.filter { it.source == "import" }
-    "download" -> tracks.filter { it.source == "download" }
+    "download" -> tracks.filter { it.source == "download" || it.id in downloadedIds }
     "original" -> tracks.filter { it.source == "original" }
     else -> tracks
 }
 
-@Composable fun HomeScreen(tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, busy: Boolean, onImport: () -> Unit, onOriginals: () -> Unit, onSettings: () -> Unit, onCollection: (Collection) -> Unit, onPlay: (List<Track>, Int) -> Unit, onMore: (Track) -> Unit) {
+@Composable fun HomeScreen(tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, busy: Boolean, onImport: () -> Unit, onOriginals: () -> Unit, onSettings: () -> Unit, onCollection: (Collection) -> Unit, onPlay: (List<Track>, Int) -> Unit, onMore: (Track) -> Unit, downloadedIds: Set<String> = emptySet()) {
     var filter by rememberSaveable { mutableStateOf("Todo") }
     LazyColumn(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF20342D), VibeBackground), endY = 520f)), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
@@ -124,7 +124,7 @@ fun Collection.select(tracks: List<Track>, members: List<PlaylistTrack>): List<T
                 }
             }
             if (filter in listOf("Todo", "Descargas", "Música")) {
-                val offline = if (filter == "Descargas") tracks.filter { it.source == "download" } else tracks
+                val offline = if (filter == "Descargas") tracks.filter { it.source == "download" || it.id in downloadedIds } else tracks
                 item { SectionTitle(if (filter == "Descargas") "Música descargada" else "Siempre contigo", "Ver todo", { onCollection(Collection(if (filter == "Descargas") "download" else "all", title = "Disponible sin conexión")) }) }
                 items(offline.take(5), key = { it.id }) { track -> TrackRow(track, track.id == playback.currentId, { onPlay(offline, offline.indexOf(track)) }, { onMore(track) }) }
                 if (offline.isEmpty()) item { EmptyState(Icons.Rounded.Download, "Tu música, disponible siempre", "Importa archivos o descarga desde un catálogo autorizado en Buscar.") }

@@ -47,4 +47,15 @@ class DatabaseTest {
         assertEquals(2048L, db.music().download("a")!!.downloadedBytes)
         assertEquals("\"v1\"", db.music().download("a")!!.etag)
     }
+    @Test fun completedDownloadRetainsActualTrackWhenContentAlreadyExisted() = runTest {
+        db.music().insertTrack(track("imported"))
+        db.music().saveDownload(DownloadEntry("remote", "Audio", "Autor", "Álbum", "https://example.org/a.mp3", "CC0-1.0", "https://creativecommons.org/publicdomain/zero/1.0/", "Autor", "a".repeat(40), hashAlgorithm = "SHA-1"))
+        db.music().completeDownload("remote", "imported")
+        db.close();db = open()
+        assertEquals("completed", db.music().download("remote")!!.state)
+        assertEquals("imported", db.music().download("remote")!!.savedTrackId)
+        db.music().deleteDownloadsForTrack("imported")
+        assertNull(db.music().download("remote"))
+        assertNotNull(db.music().track("imported"))
+    }
 }

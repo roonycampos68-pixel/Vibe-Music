@@ -11,26 +11,20 @@ import java.util.concurrent.TimeUnit
 
 /** Only explicit download grants with a public license, attribution and checksum are accepted. */
 class CatalogRepository {
-    private val client = OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).followSslRedirects(false).followRedirects(false).build()
-    suspend fun load(url: String): List<CatalogTrack> = withContext(Dispatchers.IO) {
-        require(url.toHttpUrl().isHttps) { "El catálogo debe usar HTTPS" }
-        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-            check(response.isSuccessful) { "No se pudo cargar el catálogo (HTTP ${response.code})" }
-            val body = response.body ?: error("El catálogo está vacío")
-            require(body.contentLength() <= 2 * 1024 * 1024) { "El catálogo es demasiado grande" }
-            val bytes = body.byteStream().use { input ->
-                val out = java.io.ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                while (out.size() <= 2 * 1024 * 1024) { val count = input.read(buffer);if (count < 0) break;out.write(buffer, 0, count) }
-                out.toByteArray()
-            }
-            require(bytes.size <= 2 * 1024 * 1024) { "El catálogo es demasiado grande" }
-            parse(String(bytes, Charsets.UTF_8))
-        }
+    private val client = NetworkClient.create()
+    suspend fun load(url: String): List<CatalogTrack> {
+        val parsed = url.toHttpUrl()
+        require(parsed.isHttps && parsed.username.isBlank() && parsed.password.isBlank()) { "Utiliza un catálogo HTTPS sin credenciales en la dirección" }
+        return parse(NetworkClient.json(client, parsed))
     }
     companion object {
+        fun bundled(context: android.content.Context): List<CatalogTrack> = parse(context.assets.open("catalog/originals.json").bufferedReader().use { it.readText() }).map { track ->
+            val file = when (track.id) { "vibe-midnight" -> "midnight.wav"; "vibe-orbits" -> "orbits.wav"; "vibe-tide" -> "tide.wav"; else -> error("Audio incluido desconocido") }
+            track.copy(assetPath = "originals/$file")
+        }
+
         fun parse(json: String): List<CatalogTrack> {
-            val root = JSONObject(json)
+            val root = try { JSONObject(json) } catch (e: org.json.JSONException) { throw IllegalArgumentException("El catálogo no contiene JSON válido", e) }
             require(root.getInt("version") == 1) { "Versión de catálogo no compatible" }
             val tracks = root.getJSONArray("tracks")
             require(tracks.length() <= 1000) { "El catálogo supera 1000 canciones" }

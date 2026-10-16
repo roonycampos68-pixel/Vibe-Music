@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "tracks": [
+    {
+      "id": "vibe-midnight",
+      "title": "Luz de medianoche",
+      "artist": "Vibe Studio",
+      "album": "Vibe Originals · Vol. 1",
+      "downloadAuthorized": true,
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Vibe Studio · Composición y síntesis originales · CC0-1.0",
+      "qualities": [
+        {
+          "label": "Original",
+          "url": "https://raw.githubusercontent.com/roonycampos68-pixel/Vibe-Music/main/app/src/main/assets/originals/midnight.wav",
+          "sha256": "7e2bd765065d87542cc0181843cb286e6377ce81142ec4351d9bb7a524437cb7",
+          "sizeBytes": 1411244
+        }
+      ]
+    },
+    {
+      "id": "vibe-orbits",
+      "title": "Entre órbitas",
+      "artist": "Vibe Studio",
+      "album": "Vibe Originals · Vol. 1",
+      "downloadAuthorized": true,
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Vibe Studio · Composición y síntesis originales · CC0-1.0",
+      "qualities": [
+        {
+          "label": "Original",
+          "url": "https://raw.githubusercontent.com/roonycampos68-pixel/Vibe-Music/main/app/src/main/assets/originals/orbits.wav",
+          "sha256": "6e44c096c4b3b16882cbe35df44510ae7d07bf9140368085762e47ae3d41dac6",
+          "sizeBytes": 1411244
+        }
+      ]
+    },
+    {
+      "id": "vibe-tide",
+      "title": "Marea lenta",
+      "artist": "Vibe Studio",
+      "album": "Vibe Originals · Vol. 1",
+      "downloadAuthorized": true,
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Vibe Studio · Composición y síntesis originales · CC0-1.0",
+      "qualities": [
+        {
+          "label": "Original",
+          "url": "https://raw.githubusercontent.com/roonycampos68-pixel/Vibe-Music/main/app/src/main/assets/originals/tide.wav",
+          "sha256": "4884e8d1d597a9c9142ab75ce33432907154900612de88656cbf55614e82208e",
+          "sizeBytes": 1411244
+        }
+      ]
+    }
+  ]
+}

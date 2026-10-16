@@ -82,12 +82,12 @@ import com.vibemusic.model.*
                     IconAction(Icons.Rounded.Shuffle, "Alternar reproducción aleatoria", vm::shuffle, if (state.shuffle) VibeGreen else VibeMuted)
                     IconAction(Icons.Rounded.SkipPrevious, "Canción anterior", vm::previous, modifier = Modifier.size(50.dp))
                     FilledIconButton(vm::togglePlay, Modifier.size(72.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = Color.Black)) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "Pausar" else "Reproducir", Modifier.size(43.dp)) }
-                    IconAction(Icons.Rounded.SkipNext, "Siguiente canción", vm::next, modifier = Modifier.size(50.dp))
+                    IconAction(Icons.Rounded.SkipNext, "Siguiente canción", vm::next, enabled = state.canNext, modifier = Modifier.size(50.dp))
                     IconAction(if (state.repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, "Cambiar repetición", vm::repeat, if (state.repeat == Player.REPEAT_MODE_OFF) VibeMuted else VibeGreen)
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconAction(Icons.Rounded.VolumeUp, "Controlar volumen", { showVolume = true }, VibeMuted)
-                    Text("ESTE TELÉFONO", fontSize = 9.sp, letterSpacing = 1.sp, color = VibeGreen, modifier = Modifier.weight(1f))
+                    Text("SALIDA DE ANDROID", fontSize = 9.sp, letterSpacing = 1.sp, color = VibeGreen, modifier = Modifier.weight(1f))
                     Icon(Icons.Rounded.CheckCircle, "Guardada sin conexión", Modifier.size(16.dp), tint = VibeGreen)
                     IconAction(Icons.Rounded.QueueMusic, "Ver cola de reproducción", { showQueue = true })
                 }

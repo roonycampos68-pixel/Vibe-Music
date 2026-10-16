@@ -1,6 +1,7 @@
 package com.vibemusic.ui
 
-import androidx.compose.foundation.background
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -17,83 +18,105 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vibemusic.model.*
+import kotlinx.coroutines.delay
 
-@Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit) {
+@Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit, onImportMusic: () -> Unit = {}, onImportSpotify: () -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
-    var source by rememberSaveable { mutableStateOf("Mi música") }
+    var source by rememberSaveable { mutableStateOf("Todo") }
     var kind by rememberSaveable { mutableStateOf("Canciones") }
     val settings by vm.settings.collectAsState()
     val catalog by vm.catalog.collectAsState()
     val loading by vm.catalogLoading.collectAsState()
     val error by vm.catalogError.collectAsState()
+    val next by vm.nextOffset.collectAsState()
+    val searchIntent by vm.searchIntent.collectAsState()
+    val requests by vm.playlistRequests.collectAsState()
+    val target = requests.find { it.id == searchIntent?.requestId }
     var chooseQuality by remember { mutableStateOf<CatalogTrack?>(null) }
+    val context = LocalContext.current
     val results = remember(tracks, query) { tracks.filter { MusicRules.matches(it, query) } }
+    LaunchedEffect(searchIntent?.nonce) { searchIntent?.let { query = it.query;source = "Todo" } }
+    LaunchedEffect(query, source, settings.offlineOnly) {
+        vm.cancelCatalogSearch()
+        if (source != "Mi música") { delay(600);vm.loadCatalog(query) }
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp)) {
         item {
-            Text("Buscar", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(20.dp))
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), placeholder = { Text("¿Qué quieres escuchar?") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconAction(Icons.Rounded.Close, "Borrar búsqueda", { query = "" }) }, singleLine = true, shape = RoundedCornerShape(8.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.rememberSearch(query) }), colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = VibeCard, focusedContainerColor = VibeCard))
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Mi música", "Catálogo legal").forEach { label -> Pill(label, source == label) { source = label;if (label == "Catálogo legal" && catalog.isEmpty()) vm.loadCatalog() } }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Buscar", Modifier.weight(1f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                IconAction(Icons.Rounded.PlaylistAdd, "Importar playlist de Spotify", onImportSpotify)
+                IconAction(Icons.Rounded.Settings, "Fuentes de música", onSettings)
             }
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), placeholder = { Text("Canción, artista o álbum") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconAction(Icons.Rounded.Close, "Borrar búsqueda", { query = "" }) }, singleLine = true, shape = RoundedCornerShape(8.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.rememberSearch(query);if (source != "Mi música") vm.loadCatalog(query) }), colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = VibeCard, focusedContainerColor = VibeCard))
             Spacer(Modifier.height(14.dp))
-            if (source == "Mi música") Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("Canciones", "Artistas", "Álbumes", "Playlists").forEach { label -> Pill(label, kind == label) { kind = label } }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Todo", "Mi música", "En línea").forEach { label -> Pill(label, source == label) { source = label } } }
+            if (target != null) Surface(color = VibeCard, shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(top = 14.dp)) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Elige el audio que corresponde a ${target.title}. Se vinculará a tu playlist.", Modifier.weight(1f), fontSize = 12.sp)
+                    IconAction(Icons.Rounded.Close, "Cancelar vinculación", vm::clearSearchTarget)
+                }
+            }
+            if (source != "En línea") {
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Canciones", "Artistas", "Álbumes", "Playlists").forEach { label -> Pill(label, kind == label) { kind = label } } }
             }
         }
-        if (source == "Mi música") {
+        if (source != "En línea") {
             if (query.isBlank() && settings.recentSearches.isNotEmpty()) {
                 item { SectionTitle("Búsquedas recientes") }
                 items(settings.recentSearches) { term -> ListItem(headlineContent = { Text(term) }, leadingContent = { Icon(Icons.Rounded.History, null) }, modifier = Modifier.clickable { query = term }) }
             }
-            item { SectionTitle(if (query.isBlank()) "Explora tu biblioteca" else "Resultados") }
+            item { SectionTitle("En tu biblioteca") }
             when (kind) {
-                "Canciones" -> items(results, key = { it.id }) { track -> TrackRow(track, track.id == playback.currentId, { vm.rememberSearch(query);vm.play(results, results.indexOf(track)) }, { onMore(track) }) }
+                "Canciones" -> items(results, key = { "local-${it.id}" }) { track -> TrackRow(track, track.id == playback.currentId, { if (target != null) vm.linkRequest(target, track) else { vm.rememberSearch(query);vm.play(results, results.indexOf(track)) } }, { onMore(track) }) }
                 "Artistas", "Álbumes" -> {
                     val groups = if (kind == "Artistas") results.groupBy { it.artist } else results.groupBy { it.album }
-                    items(groups.entries.toList(), key = { it.key }) { (name, group) ->
-                        ListItem(headlineContent = { Text(name) }, supportingContent = { Text("${group.size} canciones · Sin conexión") }, leadingContent = { Art(group.first(), Modifier.size(54.dp)) }, modifier = Modifier.clickable { vm.rememberSearch(query);onCollection(Collection(if (kind == "Artistas") "artist" else "album", name, name)) })
-                    }
+                    items(groups.entries.toList(), key = { "group-${it.key}" }) { (name, group) -> ListItem(headlineContent = { Text(name) }, supportingContent = { Text("${group.size} canciones · Sin conexión") }, leadingContent = { Art(group.first(), Modifier.size(54.dp)) }, modifier = Modifier.clickable { onCollection(Collection(if (kind == "Artistas") "artist" else "album", name, name)) }) }
                 }
-                "Playlists" -> items(playlists.filter { it.name.contains(query, true) }, key = { it.id }) { p -> ListItem(headlineContent = { Text(p.name) }, leadingContent = { Icon(Icons.Rounded.QueueMusic, null) }, modifier = Modifier.clickable { vm.rememberSearch(query);onCollection(Collection("playlist", p.id, p.name)) }) }
+                "Playlists" -> items(playlists.filter { MusicMatching.matchesQuery(query, it.name) }, key = { "playlist-${it.id}" }) { p -> ListItem(headlineContent = { Text(p.name) }, leadingContent = { Icon(Icons.Rounded.QueueMusic, null) }, modifier = Modifier.clickable { onCollection(Collection("playlist", p.id, p.name)) }) }
             }
-            if ((kind != "Playlists" && results.isEmpty()) || (kind == "Playlists" && playlists.none { it.name.contains(query, true) })) item { EmptyState(Icons.Rounded.Search, "Todavía no hay resultados", "Prueba otro nombre o importa música desde Tu biblioteca.") }
-        } else {
+            if ((kind != "Playlists" && results.isEmpty()) || (kind == "Playlists" && playlists.none { MusicMatching.matchesQuery(query, it.name) })) item {
+                if (source == "Mi música") EmptyState(Icons.Rounded.LibraryMusic, "Todavía no tienes esa música", "Esta pestaña busca en tus archivos. En Todo o En línea puedes buscar audio público; también puedes importar tu música.", "Importar archivos", onImportMusic)
+                else Text("Sin coincidencias locales. También estamos buscando en las fuentes disponibles.", color = VibeMuted, fontSize = 13.sp)
+            }
+        }
+        if (source != "Mi música") {
             item {
-                SectionTitle("Música con permiso para quedarse")
-                Text("Solo archivos con descarga autorizada, licencia pública y verificación de integridad. La escucha empieza cuando la descarga termina.", color = VibeMuted, fontSize = 13.sp)
-                Spacer(Modifier.height(14.dp))
+                SectionTitle(if (query.isBlank()) "Descubre audio para guardar" else "Audio disponible para guardar")
+                Text("Buscamos en Wikimedia Commons y en tu fuente adicional. Solo se ofrecen descargas con una licencia compatible. El catálogo no incluye todas las canciones comerciales de Spotify.", color = VibeMuted, fontSize = 12.sp)
+                Spacer(Modifier.height(12.dp))
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (error != null) EmptyState(Icons.Rounded.CloudOff, "No pudimos abrir el catálogo", error!!, if (settings.catalogUrl.isBlank()) "Configurar catálogo" else "Reintentar", { if (settings.catalogUrl.isBlank()) onSettings() else vm.loadCatalog() })
-                if (!loading && error == null && catalog.isEmpty()) EmptyState(Icons.Rounded.LibraryMusic, "Conecta una fuente autorizada", "Añade la dirección de un catálogo compatible en Ajustes. Tu biblioteca local funciona sin configurar nada.", "Abrir ajustes", onSettings)
+                if (error != null) Surface(color = VibeCard, shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+                    Column(Modifier.padding(12.dp)) { Text(error!!, fontSize = 12.sp);TextButton({ vm.loadCatalog(query) }) { Text("Reintentar búsqueda") } }
+                }
             }
-            val filtered = catalog.filter { listOf(it.title, it.artist, it.album).any { field -> field.contains(query, true) } }
-            items(filtered, key = { it.id }) { track ->
-                ListItem(headlineContent = { Text(track.title) }, supportingContent = { Text("${track.artist} · ${track.license}") }, leadingContent = { Box(Modifier.size(50.dp).background(VibeCard), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MusicNote, null, tint = VibeGreen) } }, trailingContent = { IconAction(Icons.Rounded.Download, "Descargar ${track.title}", { chooseQuality = track }, VibeGreen) }, modifier = Modifier.clickable { chooseQuality = track })
+            items(catalog, key = { "online-${it.id}" }) { track ->
+                val saved = tracks.find { local -> local.sourceUrl == track.qualities.first().url || (track.qualities.first().hashAlgorithm == "SHA-256" && local.contentHash == track.qualities.first().sha256) }
+                val action = { if (saved != null && target == null) vm.play(listOf(saved)) else chooseQuality = track }
+                ListItem(headlineContent = { Text(track.title, maxLines = 2, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${track.artist}\n${if (track.assetPath != null) "Incluido en Vibe" else "${track.album} · ${track.license}"}" + if (saved != null) " · Guardado" else "", maxLines = 3, fontSize = 12.sp) }, leadingContent = { Art(modifier = Modifier.size(52.dp), label = track.title) }, trailingContent = { IconAction(if (saved != null && target == null) Icons.Rounded.PlayArrow else Icons.Rounded.Download, if (saved != null) "Escuchar ${track.title}" else "Guardar ${track.title}", action, VibeGreen) }, modifier = Modifier.clickable(onClick = action))
             }
-            if (catalog.isNotEmpty()) item {
-                SectionTitle("Descargar un álbum")
-                catalog.groupBy { it.album }.forEach { (name, songs) -> ListItem(headlineContent = { Text(name) }, supportingContent = { Text("${songs.size} archivos autorizados") }, trailingContent = { IconAction(Icons.Rounded.DownloadForOffline, "Descargar álbum $name", { vm.downloadAlbum(songs) }) }) }
+            if (next != null && !loading) item { TextButton({ vm.loadCatalog(query, append = true) }, Modifier.fillMaxWidth()) { Text("Mostrar más resultados") } }
+            if (!loading && catalog.isEmpty()) item {
+                EmptyState(Icons.Rounded.SearchOff, "No encontramos audio descargable", "Prueba otro título o artista. Si la grabación no tiene una fuente con permiso de descarga, puedes importar un archivo propio y vincularlo a tu playlist.", "Importar música", onImportMusic)
             }
         }
     }
-    chooseQuality?.let { track ->
-        AlertDialog(onDismissRequest = { chooseQuality = null }, title = { Text(track.title) }, text = {
-            Column {
-                Text(track.attribution, color = VibeMuted, fontSize = 12.sp)
-                Text(track.license, color = VibeGreen, fontSize = 12.sp)
-                Spacer(Modifier.height(16.dp))
-                track.qualities.forEach { quality ->
-                    TextButton({ vm.download(track, quality);chooseQuality = null }, Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Download, null);Spacer(Modifier.width(10.dp));Text(quality.label + if (quality.sizeBytes > 0) " · ${MusicRules.formatSize(quality.sizeBytes)}" else "") }
-                }
-            }
-        }, confirmButton = { TextButton({ chooseQuality = null }) { Text("Cerrar") } })
-    }
+    chooseQuality?.let { track -> AlertDialog(onDismissRequest = { chooseQuality = null }, title = { Text(track.title) }, text = {
+        Column {
+            Text(track.attribution, color = VibeMuted, fontSize = 12.sp)
+            Text(track.license, color = VibeGreen, fontSize = 12.sp)
+            if (target != null) Text("Se usará esta grabación para «${target.title}» de ${target.artist}.", fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+            track.sourcePage?.let { page -> TextButton({ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(page))) }.onFailure { vm.messages.tryEmit("No se pudo abrir el navegador") } }) { Text("Consultar la fuente y sus permisos") } }
+            Spacer(Modifier.height(12.dp))
+            track.qualities.forEach { quality -> TextButton({ vm.rememberSearch(query);vm.download(track, quality, target?.id);chooseQuality = null }, Modifier.fillMaxWidth(), enabled = track.assetPath != null || !settings.offlineOnly) { Icon(Icons.Rounded.Download, null);Spacer(Modifier.width(8.dp));Text((if (target != null) "Vincular · " else "Guardar · ") + quality.label + if (quality.sizeBytes > 0) " · ${MusicRules.formatSize(quality.sizeBytes)}" else "") } }
+        }
+    }, confirmButton = { TextButton({ chooseQuality = null }) { Text("Cerrar") } }) }
 }

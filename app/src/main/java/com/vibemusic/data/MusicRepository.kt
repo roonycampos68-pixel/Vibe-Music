@@ -8,7 +8,9 @@ import android.provider.OpenableColumns
 import androidx.room.withTransaction
 import com.vibemusic.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
@@ -20,30 +22,43 @@ class MusicRepository(private val context: Context, val database: VibeDatabase) 
     val playlists = dao.observePlaylists()
     val members = dao.observeMembership()
     val downloads = dao.observeDownloads()
+    val requests = dao.observeRequests()
     val musicDir = File(context.filesDir, "music").apply { mkdirs() }
     val artDir = File(context.filesDir, "artwork").apply { mkdirs() }
 
     suspend fun importMusic(uri: Uri): Track = withContext(Dispatchers.IO) {
-        val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        val name = runCatching { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
-        } ?: "Mi canción"
+        } }.getOrNull() ?: "Mi canción"
         context.contentResolver.openInputStream(uri)?.use { importStream(it, name) } ?: error("No se pudo abrir el archivo")
     }
 
     suspend fun importStream(input: InputStream, name: String, source: String = "import"): Track = withContext(Dispatchers.IO) {
         val tmp = File(musicDir, "${UUID.randomUUID()}.part")
         try {
-            input.use { stream -> tmp.outputStream().use { out -> stream.copyTo(out) } }
+            input.use { stream -> tmp.outputStream().use { out ->
+                val buffer = ByteArray(65536);var total = 0L
+                while (true) { kotlinx.coroutines.currentCoroutineContext().ensureActive();val count = stream.read(buffer);if (count < 0) break;total += count;require(total < 2L * 1024 * 1024 * 1024) { "El archivo supera 2 GB" };out.write(buffer, 0, count) }
+            } }
             val hash = sha256(tmp)
-            dao.byHash(hash)?.let { tmp.delete(); return@withContext it }
+            dao.byHash(hash)?.let { tmp.delete();PlaylistLinks.reconcile(database, it);return@withContext it }
             val extension = name.substringAfterLast('.', "audio").lowercase().takeIf { it in setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus") } ?: "audio"
-            val target = File(musicDir, "$hash.$extension")
+            val target = File(musicDir, "$hash-${UUID.randomUUID()}.$extension")
             check(tmp.renameTo(target)) { "No se pudo guardar la canción" }
             try {
                 val track = metadata(target, hash, name.substringBeforeLast('.'), source)
-                dao.insertTrack(track)
-                track
-            } catch (e: Exception) { target.delete(); throw e }
+                val result = database.withTransaction {
+                    val inserted = dao.insertTrack(track)
+                    val saved = if (inserted == -1L) dao.byHash(hash) ?: error("No se pudo registrar el audio") else track
+                    PlaylistLinks.reconcile(database, saved)
+                    saved
+                }
+                if (result.localPath != target.absolutePath) target.delete()
+                result
+            } catch (e: Exception) {
+                withContext(NonCancellable) { if (dao.byHash(hash)?.localPath != target.absolutePath) target.delete() }
+                throw e
+            }
         } finally { tmp.delete() }
     }
 
@@ -90,15 +105,18 @@ class MusicRepository(private val context: Context, val database: VibeDatabase) 
     }
     suspend fun addToPlaylist(playlistId: String, trackId: String) = database.withTransaction {
         val existing = dao.members(playlistId)
-        dao.addMember(PlaylistTrack(playlistId, trackId, (existing.maxOfOrNull { it.position } ?: -1) + 1))
+        val requestedMax = dao.requests().filter { it.playlistId == playlistId }.maxOfOrNull { it.position } ?: -1
+        dao.addMember(PlaylistTrack(playlistId, trackId, maxOf(existing.maxOfOrNull { it.position } ?: -1, requestedMax) + 1))
     }
     suspend fun move(playlistId: String, trackId: String, delta: Int) = database.withTransaction {
-        val items = dao.members(playlistId).toMutableList()
-        val index = items.indexOfFirst { it.trackId == trackId }
-        val target = index + delta
+        val items = dao.members(playlistId)
+        val index = items.indexOfFirst { it.trackId == trackId };val target = index + delta
         if (index >= 0 && target in items.indices) {
-            val moved = items.removeAt(index);items.add(target, moved)
-            items.forEachIndexed { position, entry -> dao.position(playlistId, entry.trackId, position) }
+            val first = items[index];val other = items[target]
+            dao.position(playlistId, first.trackId, other.position);dao.position(playlistId, other.trackId, first.position)
+            dao.requests().filter { it.playlistId == playlistId }.forEach { request ->
+                when (request.trackId) { first.trackId -> dao.updateRequest(request.copy(position = other.position));other.trackId -> dao.updateRequest(request.copy(position = first.position)) }
+            }
         }
     }
     suspend fun setPlaylistArt(playlist: Playlist, uri: Uri) = withContext(Dispatchers.IO) {
@@ -113,8 +131,10 @@ class MusicRepository(private val context: Context, val database: VibeDatabase) 
         } finally { tmp.delete() }
     }
     suspend fun deleteTrack(track: Track) = withContext(Dispatchers.IO) {
-        database.withTransaction { dao.deleteTrack(track);dao.deleteDownload(track.id) }
-        File(track.localPath).delete();track.artworkPath?.let { File(it).delete() }
+        val file = File(track.localPath)
+        check(!file.exists() || file.delete()) { "No se pudo eliminar el archivo. Inténtalo de nuevo" }
+        database.withTransaction { dao.deleteTrack(track);dao.deleteDownloadsForTrack(track.id) }
+        track.artworkPath?.let { File(it).delete() }
     }
     suspend fun deletePlaylist(playlist: Playlist) {
         dao.deletePlaylist(playlist);playlist.artworkPath?.let { File(it).delete() }

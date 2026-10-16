@@ -12,6 +12,7 @@ import org.junit.Rule
 import org.junit.rules.ExternalResource
 import androidx.work.WorkManager
 import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -28,7 +29,11 @@ class LibraryUiTest {
     @get:Rule(order = 0) val workManager = object : ExternalResource() {
         override fun before() {
             val app = ApplicationProvider.getApplicationContext<VibeApplication>()
-            WorkManager.initialize(app, Configuration.Builder().build())
+            // AndroidX caches the first Application in its factory, while Robolectric
+            // creates a new Application per test. Reset it before the Activity launches
+            // so the UI and assertions use the same Room database in every test.
+            org.robolectric.util.ReflectionHelpers.setStaticField(androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory::class.java, "_instance", null)
+            WorkManagerTestInitHelper.initializeTestWorkManager(app, Configuration.Builder().build())
             // Robolectric cannot bind a real Media3 service. Exercise the app's unavailable-service
             // path here; actual playback must be verified on a device with DeviceWorkflowTest.
             Shadows.shadowOf(app).declareComponentUnbindable(ComponentName(app, PlaybackService::class.java))
@@ -36,7 +41,7 @@ class LibraryUiTest {
     }
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @Test fun createPlaylistAndAddLibraryTrackWhenAudioServiceIsUnavailable() {
-        val app = ApplicationProvider.getApplicationContext<VibeApplication>()
+        val app = compose.activity.application as VibeApplication
         runBlocking { app.database.music().insertTrack(Track("ui-fixture", "Canción de prueba UI", "Artista de prueba", "Álbum de prueba", 32000, "/ui-fixture.mp3", contentHash = "ui-fixture")) }
         compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
@@ -45,8 +50,9 @@ class LibraryUiTest {
         compose.onNodeWithContentDescription("Crear playlist").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Playlist desde interfaz")
         compose.onNodeWithText("Guardar").performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("Playlist desde interfaz").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Playlist desde interfaz").performScrollTo().performClick()
+        compose.waitUntil(15000) { runBlocking { app.database.music().observePlaylists().first().any { it.name == "Playlist desde interfaz" } } }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Playlist desde interfaz"))
+        compose.onNodeWithText("Playlist desde interfaz").performClick()
         compose.onNodeWithContentDescription("Añadir canciones a playlist").performScrollTo().performClick()
         compose.onNodeWithText("Canción de prueba UI").performClick()
         compose.onNodeWithText("Listo").performClick()
@@ -63,4 +69,53 @@ class LibraryUiTest {
             assertEquals("ui-fixture", app.database.music().members(playlist.id).single().trackId)
         }
     }
+    @Test fun importsSpotifyCsvThroughTheDocumentPickerAndDisplaysUnresolvedSongs() {
+        val app = compose.activity.application as VibeApplication
+        org.junit.Assert.assertSame(app.database, androidx.lifecycle.ViewModelProvider(compose.activity)[com.vibemusic.ui.MusicViewModel::class.java].repo.database)
+        compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        compose.onNodeWithText("Tu biblioteca").performClick()
+        compose.onNodeWithText("Importar playlist de Spotify").performScrollTo().performClick()
+        compose.onNodeWithText("Seleccionar CSV o JSON").performClick()
+        val csv = java.io.File(app.cacheDir, "spotify.csv").apply { writeText("Playlist,Track Name,Artist Name(s)\nDesde Spotify,Mi tema,Mi artista") }
+        compose.runOnIdle {
+            val activity = Shadows.shadowOf(compose.activity)
+            val started = activity.nextStartedActivityForResult
+            assertEquals(android.content.Intent.ACTION_OPEN_DOCUMENT, started.intent.action)
+            org.junit.Assert.assertTrue(compose.activity.activityResultRegistry.dispatchResult(started.requestCode, android.app.Activity.RESULT_OK, android.content.Intent().setData(android.net.Uri.fromFile(csv))))
+        }
+        compose.waitUntil(15000) { runBlocking { app.database.music().requests().any { it.title == "Mi tema" } } }
+        // Import summaries are transient messages and may cover the list on a small screen.
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).fetchSemanticsNodes().takeIf { it.isNotEmpty() }?.let {
+            compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        }
+        compose.onNodeWithText("Playlists").performScrollTo().performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Desde Spotify"))
+        compose.onNodeWithText("Desde Spotify").performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1. Mi tema"))
+        compose.onNodeWithText("1. Mi tema").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Buscar audio para Mi tema").assertExists()
+        runBlocking { assertEquals(null, app.database.music().requests().single().trackId) }
+    }
+
+    @Test fun searchStartsWithAllSourcesAndFindsBundledAudioEvenOffline() {
+        val app = compose.activity.application as VibeApplication
+        runBlocking { app.settings.offlineOnly(true) }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        compose.onNodeWithText("Buscar").performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Luz de medianoche"))
+        compose.onNodeWithText("Luz de medianoche").assertIsDisplayed()
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose.onNode(hasSetTextAction()).performTextInput("LUZ")
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Entre órbitas").fetchSemanticsNodes().isEmpty() }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Luz de medianoche"))
+        compose.onNodeWithContentDescription("Guardar Luz de medianoche").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose.onNode(hasSetTextAction()).performTextReplacement("inexistente-1234")
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("No encontramos audio descargable"))
+        compose.onNodeWithText("No encontramos audio descargable").assertIsDisplayed()
+        compose.onNodeWithText("Importar música").assertExists()
+    }
+
 }
