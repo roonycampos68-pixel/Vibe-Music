@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.LocalContext
     val offline = tracks.filter { it.source == "download" || it.id in downloadedIds }
     val settings by vm.settings.collectAsState()
     val filesPath = LocalContext.current.filesDir.path
-    val totalStorage = remember(filesPath) { android.os.StatFs(filesPath).totalBytes.toFloat() }
+    val totalStorage = remember(filesPath) { runCatching { android.os.StatFs(filesPath).totalBytes }.getOrDefault(0L) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp)) {
         item {
             Text("Descargas", fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -37,7 +37,7 @@ import androidx.compose.ui.platform.LocalContext
                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.OfflinePin, null, tint = VibeGreen);Spacer(Modifier.width(10.dp));Text("${offline.size} canciones sin conexión", fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(8.dp));Text("${MusicRules.formatSize(offline.sumOf { it.sizeBytes })} guardados · ${MusicRules.formatSize(tracks.sumOf { it.sizeBytes })} en la biblioteca", color = VibeMuted, fontSize = 12.sp)
-                    Spacer(Modifier.height(12.dp));LinearProgressIndicator(progress = { (tracks.sumOf { it.sizeBytes }.toFloat() / totalStorage).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp));LinearProgressIndicator(progress = { if (totalStorage > 0) (tracks.sumOf { it.sizeBytes }.toFloat() / totalStorage).coerceIn(0f, 1f) else 0f }, modifier = Modifier.fillMaxWidth())
                 }
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Text("Modo sin conexión", Modifier.weight(1f));Switch(settings.offlineOnly, vm::setOffline) }
@@ -45,16 +45,17 @@ import androidx.compose.ui.platform.LocalContext
         val pending = downloads.filter { it.state != "completed" }
         if (pending.isNotEmpty()) item { SectionTitle("En curso") }
         items(pending, key = { it.id }) { entry ->
+            val percent = entry.progressPercent?.takeIf { it.isFinite() }?.coerceIn(0f, 100f)
             Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                 Text(entry.title, fontWeight = FontWeight.Bold)
                 Text("${entry.artist} · ${entry.quality}", color = VibeMuted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
-                if (entry.provider == "youtube" && entry.progressPercent != null) LinearProgressIndicator(progress = { (entry.progressPercent / 100f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                if (entry.provider == "youtube" && percent != null) LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
                 else if (entry.totalBytes > 0) LinearProgressIndicator(progress = { (entry.downloadedBytes.toFloat() / entry.totalBytes).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) else if (entry.state == "downloading") LinearProgressIndicator(Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(when (entry.state) { "queued" -> "En espera de red";"downloading" -> "Descargando";"paused" -> "En pausa";else -> "No se pudo descargar" }, color = VibeMuted, fontSize = 12.sp)
-                        Text(if (entry.provider == "youtube") (entry.progressPercent?.let { "${it.toInt()}% · " }.orEmpty() + "Salida MP3") else MusicRules.formatSize(entry.downloadedBytes) + if (entry.totalBytes > 0) " / ${MusicRules.formatSize(entry.totalBytes)}" else "", color = VibeMuted, fontSize = 11.sp)
+                        Text(if (entry.provider == "youtube") (percent?.let { "${it.toInt()}% · " }.orEmpty() + "Salida MP3") else MusicRules.formatSize(entry.downloadedBytes) + if (entry.totalBytes > 0) " / ${MusicRules.formatSize(entry.totalBytes)}" else "", color = VibeMuted, fontSize = 11.sp)
                     }
                     IconAction(if (entry.state in listOf("queued", "downloading")) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (entry.state in listOf("queued", "downloading")) "Pausar descarga" else "Reanudar descarga", { if (entry.state in listOf("queued", "downloading")) vm.pauseDownload(entry.id) else vm.resumeDownload(entry.id) })
                     IconAction(Icons.Rounded.Close, "Cancelar descarga", { vm.cancelDownload(entry.id) })
@@ -108,7 +109,7 @@ import androidx.compose.ui.platform.LocalContext
     if (softwareLicenses) AlertDialog(onDismissRequest = { softwareLicenses = false }, title = { Text("Licencias de software") }, text = {
         val licenseText = remember { context.assets.open("legal/GPL-3.0.txt").bufferedReader().use { it.readText() } }
         Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-            Text("Vibe Music 1.2 se distribuye bajo GPL-3.0 o posterior. Copyright © 2026 Vibe Music contributors. Incluye youtubedl-android, yt-dlp, Python, QuickJS y FFmpeg. El código original conserva MIT y el audio original CC0. Se entrega sin garantía. Las licencias de software no conceden derechos sobre las grabaciones.", fontSize = 12.sp)
+            Text("Vibe Music ${com.vibemusic.BuildConfig.VERSION_NAME} se distribuye bajo GPL-3.0 o posterior. Copyright © 2026 Vibe Music contributors. Incluye youtubedl-android, yt-dlp, Python, QuickJS y FFmpeg. El código original conserva MIT y el audio original CC0. Se entrega sin garantía. Las licencias de software no conceden derechos sobre las grabaciones.", fontSize = 12.sp)
             TextButton({ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/roonycampos68-pixel/Vibe-Music/blob/main/THIRD_PARTY.md"))) } }) { Text("Código fuente y avisos de componentes") }
             Text(licenseText, fontSize = 11.sp, color = VibeMuted)
         }

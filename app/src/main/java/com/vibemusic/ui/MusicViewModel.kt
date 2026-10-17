@@ -179,7 +179,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val page = youtube.search(query, offset)
                 _youtubeTracks.value = (_youtubeTracks.value + page.tracks).distinctBy { it.id };_youtubeNext.value = page.nextOffset
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { _youtubeError.value = "No se pudo buscar en YouTube. Comprueba tu conexión; si persiste, el motor puede necesitar actualizarse. También puedes abrir la búsqueda en YouTube" }
+            catch (e: Exception) { _youtubeError.value = "No se pudo buscar en YouTube. Comprueba tu conexión; si persiste, el motor puede necesitar actualizarse. Puedes buscar en su página dentro de Vibe con el botón de abajo" }
             finally { if (generation == youtubeGeneration) _youtubeLoading.value = false }
         }
     }

@@ -2,7 +2,9 @@
 
 - `ui/`: Compose y Material 3 oscuro, navegación de cuatro secciones, estados vacíos,
   búsqueda local y pública, colecciones y reproductor. `MusicViewModel` expone StateFlow y
-  conecta un MediaController al servicio. Las pantallas no crean reproductores.
+  conecta un MediaController al servicio. Media3 se conserva en el servicio. `YouTubePreviewDialog` aloja el reproductor
+  oficial en un WebView visible, separado de Media3. `YouTubeWebSession` restringe
+  navegación, identifica el vídeo actual y pausa/libera la vista al salir.
 - `model/`: entidades y reglas de búsqueda, duración y claves de descarga.
 - `data/`: Room (canciones, playlists, relaciones ordenadas y trabajos de descarga),
   DataStore (preferencias y búsquedas recientes), MusicRepository (importación,
@@ -33,8 +35,9 @@ borra los archivos. Si la canción proviene de una playlist importada, eliminar 
 audio conserva el título solicitado como pendiente. Importar CSV/JSON se realiza
 en una transacción: un archivo inválido no deja playlists parcialmente importadas.
 
-Los datos viven en almacenamiento privado. No hay cuenta, analítica, anuncios,
-telemetría de la aplicación ni sincronización. La desinstalación borra los datos.
+Los datos viven en almacenamiento privado. Vibe no añade cuentas, analítica,
+telemetría, anuncios propios ni sincronización. La vista de YouTube carga el
+servicio, sus cookies y sus anuncios. Los MP3 locales no utilizan esa vista. La desinstalación borra los datos.
 La exportación CSV conserva los títulos de una playlist, incluidos los pendientes;
 no es una copia de seguridad de los archivos de audio ni de toda la biblioteca.
 

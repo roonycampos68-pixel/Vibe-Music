@@ -19,16 +19,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vibemusic.model.*
+import com.vibemusic.data.YouTubeWeb
 import com.vibemusic.data.YouTubeSearch
+import com.vibemusic.data.YouTubeTrack
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
-@Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit, onImportMusic: () -> Unit = {}, onImportSpotify: () -> Unit = {}) {
+@Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit, onImportMusic: () -> Unit = {}, onImportSpotify: () -> Unit = {}, onDownloads: () -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf("YouTube") }
     var kind by rememberSaveable { mutableStateOf("Canciones") }
@@ -46,19 +51,20 @@ import kotlinx.coroutines.delay
     val downloads by vm.downloads.collectAsState()
     val target = requests.find { it.id == searchIntent?.requestId }
     var chooseQuality by remember { mutableStateOf<CatalogTrack?>(null) }
+    var preview by remember { mutableStateOf<YouTubePreviewRequest?>(null) }
     val context = LocalContext.current
     val results = remember(tracks, query) { tracks.filter { MusicRules.matches(it, query) } }
     fun openYouTube() {
         if (settings.offlineOnly || query.isBlank()) return
-        try {
-            if (YouTubeSearch.open(context, query)) { vm.pauseForExternalPlayback();vm.rememberSearch(query) }
-            else vm.messages.tryEmit("No se encontró YouTube ni un navegador. Instala o habilita uno para continuar")
-        } catch (e: IllegalArgumentException) { vm.messages.tryEmit(e.message ?: "Revisa la búsqueda") }
+        vm.pauseForExternalPlayback();vm.rememberSearch(query)
+        val video = YouTubeSearch.videoId(query.trim())?.let { YouTubeTrack(it, "Vídeo de YouTube", "YouTube", 0) }
+        preview = YouTubePreviewRequest(track = video, query = query, requestId = target?.id)
     }
     LaunchedEffect(searchIntent?.nonce) { searchIntent?.let { query = it.query;source = "YouTube" } }
-    LaunchedEffect(query, source, settings.offlineOnly) {
+    LaunchedEffect(query, source, settings.offlineOnly, preview != null) {
         vm.cancelCatalogSearch()
         vm.cancelYouTubeSearch()
+        if (preview != null) return@LaunchedEffect
         if (source == "YouTube" && !settings.offlineOnly) { delay(900);vm.searchYouTube(query) }
         if (source == "Descargables") { delay(600);vm.loadCatalog(query) }
     }
@@ -92,7 +98,7 @@ import kotlinx.coroutines.delay
                 Spacer(Modifier.height(12.dp))
                 Text("Tu música en YouTube", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                Text("Busca una canción o pega el enlace de un vídeo público. Pulsa descargar para convertir su audio a MP3 y escucharlo en Vibe sin conexión ni anuncios.", color = VibeMuted, fontSize = 14.sp)
+                Text("Busca una canción o pega el enlace de un vídeo público. Escucha su vista previa aquí y descarga el audio a MP3 para escucharlo sin conexión ni anuncios.", color = VibeMuted, fontSize = 14.sp)
                 Spacer(Modifier.height(16.dp))
                 Button({ vm.rememberSearch(query);vm.searchYouTube(query) }, enabled = query.isNotBlank() && !settings.offlineOnly, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Rounded.Search, null);Spacer(Modifier.width(8.dp));Text("Buscar en YouTube")
@@ -103,7 +109,7 @@ import kotlinx.coroutines.delay
                 }
                 if (youtubeLoading) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp));Text("Preparando motor y buscando… La primera búsqueda puede tardar más.", color = VibeMuted, fontSize = 12.sp) }
                 youtubeError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
-                if (!settings.offlineOnly && query.isNotBlank()) TextButton(::openYouTube) { Text("Abrir búsqueda en YouTube") }
+                if (!settings.offlineOnly && query.isNotBlank()) TextButton(::openYouTube) { Text("Buscar en la página de YouTube aquí") }
                 SectionTitle("Sin conexión y sin anuncios")
                 Text("El MP3 se guarda en tu biblioteca privada. Descarga únicamente audio que tengas permiso para guardar. Los vídeos restringidos o que requieren iniciar sesión pueden no estar disponibles.", color = VibeMuted, fontSize = 13.sp)
                 TextButton({ source = "Mi música" }) { Text("Escuchar mi música guardada") }
@@ -111,10 +117,15 @@ import kotlinx.coroutines.delay
             items(youtubeTracks, key = { "youtube-${it.id}" }) { track ->
                 val saved = tracks.find { it.id == track.downloadId || it.sourceUrl == track.url }
                 val task = downloads.find { it.id == track.downloadId }
-                ListItem(headlineContent = { Text(track.title, maxLines = 2, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${track.artist} · ${MusicRules.formatTime(track.durationMs)}" + if (saved != null) " · MP3 guardado" else if (task != null) " · Ver Descargas" else "", color = VibeMuted, fontSize = 12.sp) }, leadingContent = { Art(modifier = Modifier.size(52.dp), label = track.title) }, trailingContent = {
+                ListItem(headlineContent = { Text(track.title, maxLines = 2, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${track.artist} · ${MusicRules.formatTime(track.durationMs)}" + if (saved != null) " · MP3 guardado" else if (task != null) " · Ver Descargas" else "", color = VibeMuted, fontSize = 12.sp) }, leadingContent = {
+                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(8.dp))) {
+                        Art(modifier = Modifier.fillMaxSize(), label = track.title)
+                        if (!settings.offlineOnly) AsyncImage(YouTubeWeb.thumbnail(track.id), "Miniatura de ${track.title}", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    }
+                }, trailingContent = {
                     Row {
                         IconAction(Icons.Rounded.PlayArrow, "Escuchar ${track.title}", {
-                            if (saved != null) vm.play(listOf(saved)) else if (YouTubeSearch.watch(context, track.id)) { vm.pauseForExternalPlayback();vm.rememberSearch(query) } else vm.messages.tryEmit("No se encontró YouTube ni un navegador")
+                            if (saved != null) vm.play(listOf(saved)) else { vm.pauseForExternalPlayback();vm.rememberSearch(query);preview = YouTubePreviewRequest(track, requestId = target?.id) }
                         }, VibeGreen, enabled = saved != null || !settings.offlineOnly)
                         IconAction(if (saved == null) Icons.Rounded.Download else Icons.Rounded.OfflinePin, "Descargar MP3 de ${track.title}", { vm.rememberSearch(query);vm.downloadYouTube(track, target?.id) }, enabled = !settings.offlineOnly || saved != null)
                     }
@@ -166,6 +177,7 @@ import kotlinx.coroutines.delay
             }
         }
     }
+    preview?.let { request -> YouTubePreviewDialog(request, vm, { preview = null }, onDownloads) }
     chooseQuality?.let { track -> AlertDialog(onDismissRequest = { chooseQuality = null }, title = { Text(track.title) }, text = {
         Column {
             Text(track.attribution, color = VibeMuted, fontSize = 12.sp)

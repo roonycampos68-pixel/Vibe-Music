@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 
-/** Opens YouTube's own search and player; Vibe does not scrape or download its media. */
+/** Validates official YouTube URLs; external launch helpers are available for explicit callers. */
 object YouTubeSearch {
     fun videoUrl(id: String): Uri {
         require(id.matches(Regex("[a-zA-Z0-9_-]{11}"))) { "El vídeo no es válido" }

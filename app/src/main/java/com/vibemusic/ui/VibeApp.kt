@@ -77,7 +77,7 @@ import com.vibemusic.model.*
                     onDownloads = { collectionKind = null;tab = 3 })
                 else -> Crossfade(tab, label = "Navegación") { page -> when (page) {
                     0 -> HomeScreen(tracks, playlists, playback, busy, importMusic, vm::addOriginals, { settingsOpen = true }, ::openCollection, { list, index -> vm.play(list, index) }, { options = it }, downloadedIds = downloads.filter { it.state == "completed" }.mapNotNull { it.savedTrackId }.toSet())
-                    1 -> SearchScreen(vm, tracks, playlists, playback, ::openCollection, { options = it }, { settingsOpen = true }, importMusic, { spotifyImportOpen = true })
+                    1 -> SearchScreen(vm, tracks, playlists, playback, ::openCollection, { options = it }, { settingsOpen = true }, importMusic, { spotifyImportOpen = true }, { tab = 3 })
                     2 -> LibraryScreen(tracks, playlists, busy, importMusic, newPlaylist, ::openCollection, onSpotify = { spotifyImportOpen = true }, downloadedIds = downloads.filter { it.state == "completed" }.mapNotNull { it.savedTrackId }.toSet())
                     3 -> DownloadsScreen(vm, tracks, downloads, playback, { options = it }, { tab = 1 })
                 } }

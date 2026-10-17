@@ -128,7 +128,7 @@ class LibraryUiTest {
         compose.onNodeWithText("Importar música").assertExists()
     }
 
-    @Test fun youtubeIsTheDefaultSearchAndItsExternalFallbackDoesNotCreateDownloads() {
+    @Test fun youtubeIsTheDefaultSearchAndItsWebSearchStaysInVibeWithoutCreatingDownloads() {
         val app = compose.activity.application as VibeApplication
         runBlocking { app.settings.offlineOnly(false) }
         compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
@@ -136,14 +136,42 @@ class LibraryUiTest {
         compose.onNodeWithText("Buscar").performClick()
         compose.onNodeWithText("Buscar en YouTube").assertIsNotEnabled()
         compose.onNode(hasSetTextAction()).performTextInput("Muse Uprising")
-        compose.onNodeWithText("Abrir búsqueda en YouTube").performScrollTo().performClick()
+        compose.onNodeWithText("Buscar en la página de YouTube aquí").performScrollTo().performClick()
+        compose.onNodeWithText("YouTube dentro de Vibe").assertIsDisplayed()
+        compose.onNodeWithText("Descargar MP3").performScrollTo().assertIsNotEnabled()
         compose.runOnIdle {
             val launched = Shadows.shadowOf(compose.activity).nextStartedActivity
-            assertEquals("com.google.android.youtube", launched.`package`)
-            assertEquals("Muse Uprising", launched.data!!.getQueryParameter("search_query"))
+            assertEquals(null, launched)
         }
         runBlocking { org.junit.Assert.assertTrue(app.database.music().observeDownloads().first().isEmpty()) }
         org.junit.Assert.assertTrue(WorkManager.getInstance(app).getWorkInfosByTag("music-download").get().isEmpty())
+        compose.onNodeWithContentDescription("Cerrar vista de YouTube").performClick()
+        compose.onNodeWithText("YouTube dentro de Vibe").assertDoesNotExist()
+    }
+
+    @Test fun opensEmbeddedPreviewForAPastedVideoAndQueuesMp3FromTheSameDialog() {
+        val app = compose.activity.application as VibeApplication
+        runBlocking { app.settings.offlineOnly(false) }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        compose.onNodeWithText("Buscar").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        compose.onNodeWithText("Buscar en la página de YouTube aquí").performScrollTo().performClick()
+        compose.onNodeWithText("Vista previa de YouTube").assertIsDisplayed()
+        compose.onNodeWithText("Ver página aquí").performScrollTo().assertExists()
+        compose.onNodeWithText("Descargar MP3").performScrollTo().performClick()
+        compose.waitUntil(15000) {
+            compose.onNodeWithText("Vista previa de YouTube").fetchSemanticsNode()
+            runBlocking { app.database.music().download("youtube-dQw4w9WgXcQ") != null }
+        }
+        runBlocking {
+            assertEquals("youtube", app.database.music().download("youtube-dQw4w9WgXcQ")!!.provider)
+            org.junit.Assert.assertTrue(app.database.music().tracks().isEmpty())
+        }
+        compose.runOnIdle { assertEquals(null, Shadows.shadowOf(compose.activity).nextStartedActivity) }
+        compose.onNodeWithText("Ver descargas").performScrollTo().performClick()
+        compose.onNodeWithText("Vista previa de YouTube").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Cerrar vista de YouTube").assertDoesNotExist()
     }
 
 }

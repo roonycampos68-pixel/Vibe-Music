@@ -1,6 +1,6 @@
 # Pruebas de dispositivo
 
-La matriz de resultados de la entrega está en `VALIDATION.md`. Este documento es
+La matriz de resultados actual está en `VALIDATION-1.3.md`. Este documento es
 el procedimiento reproducible; una casilla de esta lista no significa que se haya
 superado la prueba.
 
@@ -85,5 +85,45 @@ a MP3 y observar sus fases, pausar, reanudar y cancelar. Repetir con enlace cort
 con vídeo privado, retirado y en vivo; los fallos deben ser visibles sin añadir
 audio incompleto. Completar una descarga, activar modo avión, cerrar/abrir y
 reproducir el MP3. Comprobar Wi-Fi, almacenamiento insuficiente y varias descargas
-en cola. La reproducción de una canción aún no descargada debe abrir YouTube;
-la guardada debe sonar en Vibe. Estas comprobaciones necesitan ejecución real.
+en cola. La reproducción de una canción aún no descargada debe mostrar el reproductor
+oficial dentro de Vibe; la guardada debe sonar en Media3. Estas comprobaciones necesitan ejecución real.
+
+## Vista de YouTube de la versión 1.3
+
+1. Buscar una grabación pública y pulsar reproducir: comprobar miniatura, título
+   y reproductor dentro de Vibe. Tocar ▶ en el vídeo y escuchar. No debe abrirse
+   YouTube ni otro navegador. Conservar visibles sus controles y anuncios.
+2. Probar un vídeo que no permita inserción: leer el error, pulsar **Ver página
+   aquí** y comprobar que la reproducción sigue en Vibe. No se exige que vídeos
+   privados/restringidos se reproduzcan.
+3. Descargar desde la vista previa, consultar porcentaje/fase y abrir **Ver
+   descargas**. Volver a la biblioteca tras terminar y escuchar en modo avión.
+4. Abrir la búsqueda web alternativa, buscar y abrir dos vídeos distintos. Verificar
+   que el botón se refiere al vídeo actual y que se deshabilita al volver a resultados.
+5. Cerrar la vista, rotar el teléfono, pulsar atrás y cambiar a otra aplicación.
+   Comprobar que el vídeo deja de sonar, que no quedan dos audios y que la biblioteca
+   no vuelve a reproducir por sí sola. Probar retrato/paisaje, texto grande y teclado.
+6. Probar red caída y WebView ausente/desactualizado: debe mostrarse una explicación
+   y mantenerse la posibilidad de descargar desde el motor local cuando haya red.
+
+`EmbeddedPlayerTest` ejecuta el HTML y la comunicación de estado en un WebView
+Android real con una API de prueba local interceptada. No consulta YouTube, no
+reproduce sonido y no demuestra que los vídeos reales funcionen. Se ejecuta con:
+
+```bash
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.vibemusic.EmbeddedPlayerTest
+```
+
+Si ddmlib agota el tiempo de lectura de propiedades en un emulador lento y muestra
+«Unknown API Level», comprueba primero con ADB el SDK y `sys.boot_completed = 1`.
+En esta entrega se ejecutó el caso sin el descubrimiento de dispositivos de Gradle:
+
+```bash
+adb -s emulator-5556 install -r -t app/build/outputs/apk/debug/app-x86_64-debug.apk
+adb -s emulator-5556 install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s emulator-5556 shell am instrument -w -r -e class com.vibemusic.EmbeddedPlayerTest com.vibemusic.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+El número de serie y ABI deben corresponder al dispositivo de pruebas. Comprueba
+`OK (1 test)` y el código de cada caso, no solo la salida del comando ADB: Android
+puede terminar el comando aunque haya una aserción fallida.

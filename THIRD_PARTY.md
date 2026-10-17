@@ -1,4 +1,4 @@
-# Componentes de la versión 1.2
+# Componentes de la versión 1.3
 
 La aplicación combinada se distribuye bajo **GPL-3.0 o posterior** (`COPYING`).
 El código original de Vibe Music 1.0/1.1 conserva MIT (`LICENSE-MIT`); el audio

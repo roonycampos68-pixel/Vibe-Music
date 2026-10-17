@@ -7,12 +7,12 @@ y reproducción real con Media3.
 ## Instalar en el teléfono
 
 El APK de esta entrega se encuentra en
-[`releases/Vibe-Music-1.2.0-arm64-v8a-debug.apk`](releases/Vibe-Music-1.2.0-arm64-v8a-debug.apk?raw=true).
-Para teléfonos de 32 bits usa [la variante ARM de 32 bits](releases/Vibe-Music-1.2.0-armeabi-v7a-debug.apk?raw=true).
+[`releases/Vibe-Music-1.3.0-arm64-v8a-debug.apk`](releases/Vibe-Music-1.3.0-arm64-v8a-debug.apk?raw=true).
+Para teléfonos de 32 bits usa [la variante ARM de 32 bits](releases/Vibe-Music-1.3.0-armeabi-v7a-debug.apk?raw=true).
 Descárgalo en tu Android, abre el archivo y permite instalar aplicaciones desde el
 navegador/gestor de archivos cuando Android lo solicite. Es una compilación de
 pruebas firmada con una clave de depuración, no una publicación de Google Play.
-La versión 1.2.0 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
+La versión 1.3.0 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
 Si GitHub muestra 404, inicia sesión con una cuenta que tenga acceso al repositorio
 y vuelve a abrir el enlace. La app no necesita acceso a GitHub para buscar música.
 
@@ -36,8 +36,10 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 - Descargar audio de vídeos públicos y convertirlo a MP3 en el teléfono mediante
   yt-dlp y FFmpeg. Progreso, pausa, reanudación, cancelación y vinculación a
   playlists; los MP3 completos se reproducen sin internet y sin anuncios.
-- Reproducción en línea en la app o página de YouTube, con sus anuncios.
-  El botón de reproducir usa Vibe si el MP3 ya está guardado.
+- Vista previa con el reproductor oficial de YouTube dentro de Vibe, junto al
+  botón de descarga. Si el vídeo no permite el reproductor integrado, su página
+  también se puede abrir aquí. La búsqueda web alternativa permanece en Vibe.
+  YouTube conserva sus anuncios; el MP3 guardado se reproduce con Media3 sin red.
 - Importar playlists de Spotify mediante CSV de Exportify o JSON de los datos
   de tu cuenta. Conserva el orden y los títulos pendientes; vincula archivos
   locales y permite buscar coincidencias autorizadas. Exporta playlists a CSV.
@@ -107,7 +109,7 @@ están en [docs/DEVICE_TESTS.md](docs/DEVICE_TESTS.md).
 
 ## Documentación
 
-- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION-1.2.md)
+- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION-1.3.md)
 - [Arquitectura y persistencia](docs/ARCHITECTURE.md)
 - [Catálogos legales y descargas](docs/CATALOG.md)
 - [Importar y exportar playlists de Spotify](docs/SPOTIFY.md)
@@ -115,5 +117,5 @@ están en [docs/DEVICE_TESTS.md](docs/DEVICE_TESTS.md).
 - [Licencias de los componentes](THIRD_PARTY.md)
 - [Requisitos originales](docs/PRODUCT_REQUIREMENTS.md)
 
-Aplicación combinada 1.2: GPL-3.0 o posterior (`COPYING`). Código original 1.0/1.1:
+Aplicación combinada 1.3: GPL-3.0 o posterior (`COPYING`). Código original 1.0/1.1:
 MIT (`LICENSE-MIT`). Audio original: CC0-1.0. Las dependencias mantienen sus licencias.

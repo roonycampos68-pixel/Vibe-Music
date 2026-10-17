@@ -1,3 +1,5 @@
+Validación actual: [Vibe Music 1.3.0](VALIDATION-1.3.md). Este documento conserva la evidencia histórica.
+
 # Validación de la entrega
 
 Este archivo conserva el informe de la versión 1.1. Para la entrega actual consulta
