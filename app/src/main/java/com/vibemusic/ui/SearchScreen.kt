@@ -2,6 +2,8 @@ package com.vibemusic.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -19,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +32,7 @@ import com.vibemusic.data.YouTubeSearch
 import com.vibemusic.data.YouTubeTrack
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit, onImportMusic: () -> Unit = {}, onImportSpotify: () -> Unit = {}, onDownloads: () -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf("YouTube") }
@@ -49,31 +53,33 @@ import kotlinx.coroutines.delay
     var chooseQuality by remember { mutableStateOf<CatalogTrack?>(null) }
     var preview by remember { mutableStateOf<YouTubePreviewRequest?>(null) }
     val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val results = remember(tracks, query) { tracks.filter { MusicRules.matches(it, query) } }
     fun openYouTube() {
         if (settings.offlineOnly || query.isBlank()) return
         vm.pauseForExternalPlayback();vm.rememberSearch(query)
         val video = YouTubeSearch.videoId(query.trim())?.let { YouTubeTrack(it, "Vídeo de YouTube", "YouTube", 0) }
-        preview = YouTubePreviewRequest(track = video, query = query, requestId = target?.id)
+        if (video != null) vm.playYouTube(video, target?.id) else preview = YouTubePreviewRequest(query = query, requestId = target?.id)
     }
     LaunchedEffect(searchIntent?.nonce) { searchIntent?.let { query = it.query;source = "YouTube" } }
     LaunchedEffect(query, source, settings.offlineOnly, preview != null) {
         vm.cancelCatalogSearch()
         vm.cancelYouTubeSearch()
         if (preview != null) return@LaunchedEffect
-        if (source == "YouTube" && !settings.offlineOnly) { delay(900);vm.searchYouTube(query) }
+        if (source == "YouTube" && !settings.offlineOnly) { delay(350);vm.searchYouTube(query) }
         if (source == "Descargables") { delay(600);vm.loadCatalog(query) }
     }
     DisposableEffect(vm) { onDispose { vm.cancelYouTubeSearch();vm.cancelCatalogSearch() } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp)) {
-        item {
+        stickyHeader {
+          Column(Modifier.fillMaxWidth().background(VibeBackground)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Buscar", Modifier.weight(1f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text("Buscar", Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 IconAction(Icons.Rounded.PlaylistAdd, "Importar playlist de Spotify", onImportSpotify)
                 IconAction(Icons.Rounded.Settings, "Fuentes de música", onSettings)
             }
             Spacer(Modifier.height(16.dp))
-            OutlinedTextField(query, { query = it.take(500) }, Modifier.fillMaxWidth(), placeholder = { Text(if (source == "YouTube") "Canción, artista o enlace de YouTube" else "Canción, artista o álbum") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconAction(Icons.Rounded.Close, "Borrar búsqueda", { query = "" }) }, singleLine = true, shape = RoundedCornerShape(8.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.rememberSearch(query);if (source == "YouTube" && !settings.offlineOnly) vm.searchYouTube(query) else if (source == "Descargables") vm.loadCatalog(query) }), colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = VibeCard, focusedContainerColor = VibeCard))
+            OutlinedTextField(query, { query = it.take(500) }, Modifier.fillMaxWidth(), placeholder = { Text(if (source == "YouTube") "¿Qué quieres escuchar?" else "Canción, artista o álbum") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconAction(Icons.Rounded.Close, "Borrar búsqueda", { query = "" }) }, singleLine = true, shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.rememberSearch(query);if (source == "YouTube" && !settings.offlineOnly) vm.searchYouTube(query) else if (source == "Descargables") vm.loadCatalog(query) }), colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = VibeCard, focusedContainerColor = VibeCard))
             Spacer(Modifier.height(14.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("YouTube", "Mi música", "Descargables").forEach { label -> Pill(label, source == label) { source = label } } }
             if (target != null) Surface(color = VibeCard, shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(top = 14.dp)) {
@@ -87,48 +93,54 @@ import kotlinx.coroutines.delay
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Canciones", "Artistas", "Álbumes", "Playlists").forEach { label -> Pill(label, kind == label) { kind = label } } }
             }
         }
+        }
         if (source == "YouTube") {
             item {
-                Spacer(Modifier.height(24.dp))
-                Icon(Icons.Rounded.PlayCircle, null, Modifier.size(56.dp), tint = VibeGreen)
-                Spacer(Modifier.height(12.dp))
-                Text("Tu música en YouTube", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text("Busca una canción o pega el enlace de un vídeo público. Escucha su vista previa aquí y descarga el audio a MP3 para escucharlo sin conexión ni anuncios.", color = VibeMuted, fontSize = 14.sp)
-                Spacer(Modifier.height(16.dp))
-                Button({ vm.rememberSearch(query);vm.searchYouTube(query) }, enabled = query.isNotBlank() && !settings.offlineOnly, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Rounded.Search, null);Spacer(Modifier.width(8.dp));Text("Buscar en YouTube")
-                }
                 if (settings.offlineOnly) {
-                    Text("El modo sin conexión está activo. YouTube necesita internet.", color = VibeMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                    Text("El modo sin conexión está activo. YouTube necesita internet.", color = VibeMuted, fontSize = 13.sp)
                     TextButton({ vm.setOffline(false) }) { Text("Activar conexión para YouTube") }
                 }
-                if (youtubeLoading) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp));Text("Preparando motor y buscando… La primera búsqueda puede tardar más.", color = VibeMuted, fontSize = 12.sp) }
-                youtubeError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
-                if (!settings.offlineOnly && query.isNotBlank()) TextButton(::openYouTube) { Text("Buscar en la página de YouTube aquí") }
-                SectionTitle("Sin conexión y sin anuncios")
-                Text("El MP3 se guarda en tu biblioteca privada. Descarga únicamente audio que tengas permiso para guardar. Los vídeos restringidos o que requieren iniciar sesión pueden no estar disponibles.", color = VibeMuted, fontSize = 13.sp)
-                TextButton({ source = "Mi música" }) { Text("Escuchar mi música guardada") }
+                if (youtubeLoading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                youtubeError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+                if (query.isBlank()) Text("Búsquedas recientes", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 14.dp))
             }
-            items(youtubeTracks, key = { "youtube-${it.id}" }) { track ->
+            val rows = if (query.isBlank()) settings.recentYouTube else youtubeTracks
+            items(rows, key = { "youtube-${it.id}" }) { track ->
                 val task = downloads.find { it.id == track.downloadId }
                 val saved = tracks.find { it.id == task?.savedTrackId || it.id == track.downloadId || it.sourceUrl == track.url }
-                ListItem(headlineContent = { Text(track.title, maxLines = 2, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${track.artist} · ${MusicRules.formatTime(track.durationMs)}" + if (saved != null) " · MP3 guardado" else if (task != null) " · Ver Descargas" else "", color = VibeMuted, fontSize = 12.sp) }, leadingContent = {
-                    YouTubeCover(track.id, track.title, Modifier.size(52.dp), saved?.artworkPath)
-                }, trailingContent = {
-                    Row {
-                        IconAction(Icons.Rounded.PlayArrow, "Escuchar ${track.title}", {
-                            if (saved != null) vm.play(listOf(saved)) else { vm.pauseForExternalPlayback();vm.rememberSearch(query);preview = YouTubePreviewRequest(track, requestId = target?.id) }
-                        }, VibeGreen, enabled = saved != null || !settings.offlineOnly)
-                        IconAction(if (saved == null) Icons.Rounded.Download else Icons.Rounded.OfflinePin, "Descargar MP3 de ${track.title}", { vm.rememberSearch(query);vm.downloadYouTube(track, target?.id) }, enabled = !settings.offlineOnly || saved != null)
+                val active = playback.currentId == (saved?.id ?: track.downloadId)
+                val listen = {
+                    keyboard?.hide();vm.rememberSearch(query.ifBlank { track.title })
+                    if (active && !playback.loading && playback.error == null) vm.togglePlay()
+                    else if (!active || !playback.loading) {
+                        if (saved != null) vm.play(listOf(saved)) else vm.playYouTube(track, target?.id)
                     }
-                })
+                }
+                ListItem(
+                    headlineContent = { Text(track.title, color = if (active) VibeGreen else androidx.compose.ui.graphics.Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = { Text("${track.artist} · ${MusicRules.formatTime(track.durationMs)}" + if (saved != null) " · Guardada" else "", color = VibeMuted, fontSize = 12.sp) },
+                    leadingContent = { YouTubeCover(track.id, track.title, Modifier.size(48.dp), saved?.artworkPath) },
+                    trailingContent = {
+                        Row {
+                            IconAction(if (active && playback.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Escuchar ${track.title}", listen, VibeGreen, enabled = saved != null || !settings.offlineOnly)
+                            IconAction(if (saved == null) Icons.Rounded.Download else Icons.Rounded.OfflinePin, "Descargar MP3 de ${track.title}", { vm.downloadYouTube(track, target?.id) },
+                                enabled = (saved != null || !settings.offlineOnly) && (task?.state !in listOf("queued", "downloading") || target != null))
+                        }
+                    }, colors = ListItemDefaults.colors(containerColor = VibeBackground),
+                    modifier = Modifier.fillMaxWidth().clickable(enabled = saved != null || !settings.offlineOnly, onClick = listen)
+                )
             }
-            if (youtubeNext != null && !youtubeLoading && !settings.offlineOnly) item { TextButton({ vm.searchYouTube(query, append = true) }, Modifier.fillMaxWidth()) { Text("Más resultados de YouTube") } }
-            if (query.isNotBlank() && !youtubeLoading && youtubeError == null && youtubeTracks.isEmpty() && !settings.offlineOnly) item { Text("Escribe el título y pulsa Buscar. Si no aparece, pega el enlace del vídeo.", color = VibeMuted, fontSize = 13.sp) }
-            if (query.isBlank() && settings.recentSearches.isNotEmpty()) {
-                item { SectionTitle("Búsquedas recientes") }
+            if (youtubeNext != null && !youtubeLoading && query.isNotBlank() && !settings.offlineOnly) item {
+                TextButton({ vm.searchYouTube(query, append = true) }, Modifier.fillMaxWidth()) { Text("Más resultados de YouTube") }
+            }
+            if (query.isNotBlank() && !youtubeLoading && rows.isEmpty() && !settings.offlineOnly) item {
+                if (youtubeError == null) Text("No hay resultados para esta búsqueda", color = VibeMuted, modifier = Modifier.padding(vertical = 12.dp))
+                TextButton({ vm.searchYouTube(query) }) { Text("Reintentar búsqueda") }
+                TextButton(::openYouTube) { Text("Buscar en la página de YouTube aquí") }
+            }
+            if (query.isBlank() && rows.isEmpty()) {
                 items(settings.recentSearches) { term -> ListItem(headlineContent = { Text(term) }, leadingContent = { Icon(Icons.Rounded.History, null) }, modifier = Modifier.clickable { query = term }) }
+                if (settings.recentSearches.isEmpty()) item { Text("Busca por canción o artista. Toca un resultado para escuchar.", color = VibeMuted, modifier = Modifier.padding(vertical = 12.dp)) }
             }
         }
         if (source == "Mi música") {

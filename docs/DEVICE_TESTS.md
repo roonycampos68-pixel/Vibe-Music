@@ -1,6 +1,6 @@
 # Pruebas de dispositivo
 
-La matriz de resultados actual está en `VALIDATION-1.4.md`. Este documento es
+La matriz de resultados actual está en `VALIDATION-1.5.md`. Este documento es
 el procedimiento reproducible; una casilla de esta lista no significa que se haya
 superado la prueba.
 
@@ -152,4 +152,39 @@ YouTube ni sustituye los pasos en red anteriores. Puede ejecutarse sin Activity 
 
 ```bash
 adb shell am instrument -w -r -e class com.vibemusic.AudioPreviewPlaybackTest com.vibemusic.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+
+## Búsqueda y reproducción unificadas (1.5)
+
+Los siguientes pasos sustituyen el flujo de vista previa de 1.4:
+
+1. Buscar una canción: filas con portada bajo el buscador, desplazables y con
+   más resultados. Tocar cualquier fila debe conservar Buscar y mostrar la barra
+   inferior con título, portada, duración, progreso y descarga, sin diálogo.
+2. Medir primer inicio con red móvil/Wi-Fi y repetición de la misma canción.
+   Distinguir inicio frío, enlace precargado y caché. No considerar el tiempo
+   de espera máximo una medición de mejora de latencia.
+3. Tocar varias canciones rápidamente y cancelar con X durante conexión: ningún
+   resultado anterior debe comenzar después de la selección final o cancelación.
+4. Pausar, reanudar, desplazar el progreso, bloquear pantalla y usar notificación.
+   En segundo plano el servicio debe continuar; abrir el reproductor completo
+   solo al tocar la barra. Activar modo sin conexión debe detener el audio online.
+5. Descargar desde la fila y la barra; probar reproducción de lo ya descargado
+   con modo avión y comprobar que no vuelve a resolver YouTube.
+6. Simular red lenta/sin red: error con reintento, sin espera de minutos. Reintentar
+   debe renovar el enlace. Cambiar a una canción local debe cancelar la conexión.
+7. Volver a Buscar sin texto y comprobar recientes; desplazar la lista mantiene
+   visible el buscador. Reiniciar conserva biblioteca y recientes, sin guardar
+   una URL de streaming ni reemplazar la cola local por un enlace temporal.
+
+`OnlinePlaybackDeviceTest` prueba el controlador compartido con ExoPlayer real y
+un WAV incluido: avance del reloj, duración, metadatos/portada, seek, pausa y cambio
+a una cola local. Otra prueba conecta MediaController con PlaybackService real y
+comprueba el comando de selección y el reemplazo por una cola local. El resolver
+usa una fixture local, no YouTube. Ejecutar con:
+
+```bash
+adb shell am instrument -w -e class com.vibemusic.OnlinePlaybackDeviceTest \
+  com.vibemusic.test/androidx.test.runner.AndroidJUnitRunner
 ```

@@ -57,7 +57,8 @@ object YouTubeMetadata {
 object YouTubeCommands {
     fun preview(url: String): YoutubeDLRequest {
         val id = YouTubeSearch.videoId(url) ?: error("Selecciona un vídeo público válido de YouTube")
-        return base(YouTubeSearch.videoUrl(id).toString()).apply {
+        return base(YouTubeSearch.videoUrl(id).toString(), streaming = true).apply {
+            addOption("--extractor-retries", 0)
             addOption("--no-playlist");addOption("--skip-download");addOption("--dump-single-json")
             addOption("--format", "bestaudio[ext=m4a]/bestaudio")
             addOption("--match-filter", "!is_live")
@@ -84,9 +85,10 @@ object YouTubeCommands {
             addOption("--output", File(directory, "audio.%(ext)s").absolutePath)
         }
     }
-    private fun base(target: String) = YoutubeDLRequest(target).apply {
+    private fun base(target: String, streaming: Boolean = false) = YoutubeDLRequest(target).apply {
         addOption("--ignore-config");addOption("--no-warnings")
-        addOption("--socket-timeout", 20);addOption("--retries", 2);addOption("--fragment-retries", 2)
+        addOption("--socket-timeout", if (streaming) 6 else 20)
+        addOption("--retries", if (streaming) 0 else 2);addOption("--fragment-retries", if (streaming) 0 else 2)
     }
 }
 
@@ -100,9 +102,9 @@ class YouTubeMusic(private val context: Context) {
             return YouTubeAudioStream.parse(result.out)
         } finally { YoutubeDL.destroyProcessById(processId) }
     }
-    private suspend fun initialize() = withContext(Dispatchers.IO) {
+    private suspend fun initialize(converting: Boolean = false) = withContext(Dispatchers.IO) {
         YoutubeDL.init(context)
-        FFmpeg.init(context)
+        if (converting) FFmpeg.init(context)
         installBundledEngine(context)
     }
     suspend fun search(query: String, offset: Int = 0): YouTubePage {
@@ -114,7 +116,7 @@ class YouTubeMusic(private val context: Context) {
         } finally { YoutubeDL.destroyProcessById(processId) }
     }
     suspend fun download(url: String, directory: File, processId: String, onProgress: suspend (Float, String) -> Unit): File = downloadSlot.withPermit {
-        initialize()
+        initialize(converting = true)
         val attempt = ConversionWorkspace.prepare(directory)
         val mp3 = File(attempt, "audio.mp3")
         // An interrupted conversion is restarted; the original download and .part remain resumable.

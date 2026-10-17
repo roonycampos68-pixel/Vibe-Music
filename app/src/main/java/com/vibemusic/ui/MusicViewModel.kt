@@ -18,12 +18,13 @@ import com.vibemusic.downloads.DownloadCoordinator
 import com.vibemusic.model.*
 import com.vibemusic.playback.PlaybackService
 import com.vibemusic.playback.toMediaItem
+import com.vibemusic.playback.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.File
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
-data class PlaybackState(val currentId: String? = null, val playing: Boolean = false, val position: Long = 0, val duration: Long = 0, val shuffle: Boolean = false, val repeat: Int = 0, val queue: List<String> = emptyList(), val connecting: Boolean = true, val canNext: Boolean = false)
+data class PlaybackState(val currentId: String? = null, val playing: Boolean = false, val position: Long = 0, val duration: Long = 0, val shuffle: Boolean = false, val repeat: Int = 0, val queue: List<String> = emptyList(), val connecting: Boolean = true, val canNext: Boolean = false, val loading: Boolean = false, val error: String? = null)
 data class SearchIntent(val query: String, val requestId: String?, val nonce: Long = System.nanoTime())
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as VibeApplication
@@ -36,7 +37,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val downloads = repo.downloads.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val settings = app.settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
     private val _playback = MutableStateFlow(PlaybackState())
-    val playback = _playback.asStateFlow()
+    val playback = combine(_playback, app.onlinePlayback.state) { local, online ->
+        val track = online.track
+        if (track == null) local else local.copy(currentId = track.downloadId, loading = online.loading, error = online.error,
+            playing = !online.loading && online.error == null && local.playing,
+            position = if (local.currentId == track.downloadId) local.position else 0,
+            duration = if (local.currentId == track.downloadId && local.duration > 0) local.duration else track.durationMs)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, PlaybackState())
+    val playerTracks = combine(tracks, app.onlinePlayback.state) { local, online ->
+        online.track?.asOnlineTrack()?.let { remote -> local.filter { it.id != remote.id } + remote } ?: local
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    private var selectionGeneration = 0L
     private val included by lazy { CatalogRepository.bundled(app) }
     private val publicSource = CommonsMusicSource()
     private val youtube = YouTubeMusic(app)
@@ -113,6 +124,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (e: Exception) {
                     pendingPlay = null;messages.tryEmit("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.")
                     _playback.value = _playback.value.copy(connecting = false)
+                    app.onlinePlayback.state.value.takeIf { it.track != null }?.let { app.onlinePlayback.update(it.copy(loading = false, error = "No se pudo conectar con el reproductor. Pulsa reproducir para reintentar")) }
                 }
             }
         }, ContextCompat.getMainExecutor(app))
@@ -124,6 +136,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun runTask(block: suspend () -> Unit) { viewModelScope.launch { try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { messages.emit(e.message ?: "No se pudo completar la acción") } } }
     fun play(items: List<Track>, index: Int = 0, shuffle: Boolean = false) {
+        selectionGeneration++
         if (items.isEmpty()) return
         if (items.any { !File(it.localPath).exists() }) { messages.tryEmit("Falta un archivo de esta colección. Vuelve a importarlo o descargarlo");return }
         val c = controller?.takeIf { it.isConnected }
@@ -131,13 +144,47 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         c.setMediaItems(items.map { it.toMediaItem() }, index.coerceIn(items.indices), 0)
         c.shuffleModeEnabled = shuffle;c.prepare();c.play()
     }
+    fun playYouTube(track: YouTubeTrack, requestId: String? = null) {
+        val generation = ++selectionGeneration
+        cancelYouTubeSearch();app.streamResolver.prioritize(track.id)
+        app.onlinePlayback.update(OnlineSelection(track, requestId, loading = true))
+        controller?.pause()
+        viewModelScope.launch {
+            app.settings.rememberYouTube(track)
+            val saved = repo.dao.download(track.downloadId)?.savedTrackId?.let { repo.dao.track(it) } ?: repo.dao.track(track.downloadId)
+            if (generation != selectionGeneration) return@launch
+            if (saved != null && File(saved.localPath).isFile) { play(listOf(saved));return@launch }
+            if (app.settings.settings.first().offlineOnly) { app.onlinePlayback.update(OnlineSelection(track, requestId, error = "Activa la conexión para escuchar YouTube"));return@launch }
+            if (generation != selectionGeneration) return@launch
+            fun start() {
+                if (generation != selectionGeneration) return
+                val c = controller?.takeIf { it.isConnected } ?: return
+                c.sendCustomCommand(SessionCommand("vibe.youtube", Bundle.EMPTY), Bundle().apply {
+                    putString("id", track.id);putString("title", track.title);putString("artist", track.artist);putLong("duration", track.durationMs);putString("requestId", requestId)
+                })
+            }
+            if (controller?.isConnected == true) start() else { pendingPlay = ::start;connect() }
+        }
+    }
+    fun downloadPlayingYouTube() {
+        val selected = app.onlinePlayback.state.value
+        selected.track?.let { downloadYouTube(it, selected.requestId) }
+    }
     fun togglePlay() {
+        val online = app.onlinePlayback.state.value
+        if (online.track != null && online.loading) { stopOnline();return }
+        if (online.track != null && online.error != null) { playYouTube(online.track, online.requestId);return }
         val c = controller?.takeIf { it.isConnected }
         if (c == null) { pendingPlay = { togglePlay() };connect();return }
         if (c.isPlaying) c.pause() else { if (c.playbackState == Player.STATE_ENDED) c.seekTo(0);c.play() }
     }
+    fun stopOnline() {
+        selectionGeneration++;pendingPlay = null;app.streamResolver.cancelPending()
+        controller?.sendCustomCommand(SessionCommand("vibe.youtube.stop", Bundle.EMPTY), Bundle.EMPTY)
+        app.onlinePlayback.update(OnlineSelection())
+    }
     fun next() { controller?.let { if (it.hasNextMediaItem()) it.seekToNextMediaItem() } }
-    fun pauseForExternalPlayback() { pendingPlay = null;controller?.takeIf { it.isConnected }?.pause() }
+    fun pauseForExternalPlayback() { if (app.onlinePlayback.state.value.loading) stopOnline();pendingPlay = null;controller?.takeIf { it.isConnected }?.pause() }
     fun previous() { controller?.let { if (it.currentPosition > 3000 || !it.hasPreviousMediaItem()) it.seekTo(0) else it.seekToPreviousMediaItem() } }
     fun seek(position: Long) { controller?.seekTo(position.coerceAtLeast(0)) }
     fun shuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
@@ -180,6 +227,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun rememberSearch(value: String) = runTask { app.settings.rememberSearch(value) }
     fun searchYouTube(query: String, append: Boolean = false) {
+        if (app.onlinePlayback.state.value.track == null) app.streamResolver.cancelPending()
         youtubeJob?.cancel();val generation = ++youtubeGeneration
         if (query.isBlank()) { _youtubeTracks.value = emptyList();_youtubeNext.value = null;_youtubeError.value = null;_youtubeLoading.value = false;return }
         youtubeJob = viewModelScope.launch {
@@ -190,6 +238,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 check(!app.settings.settings.first().offlineOnly) { "YouTube necesita conexión a internet" }
                 val page = youtube.search(query, offset)
                 _youtubeTracks.value = (_youtubeTracks.value + page.tracks).distinctBy { it.id };_youtubeNext.value = page.nextOffset
+                if (!append && app.onlinePlayback.state.value.track == null) page.tracks.firstOrNull()?.let { app.streamResolver.prefetch(it) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { _youtubeError.value = "No se pudo buscar en YouTube. Comprueba tu conexión; si persiste, el motor puede necesitar actualizarse. Puedes buscar en su página dentro de Vibe con el botón de abajo" }
             finally { if (generation == youtubeGeneration) _youtubeLoading.value = false }

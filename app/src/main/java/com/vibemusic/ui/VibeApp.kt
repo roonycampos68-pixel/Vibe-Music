@@ -23,6 +23,7 @@ import com.vibemusic.model.*
 
 @Composable fun VibeApp(vm: MusicViewModel = viewModel()) {
     val tracks by vm.tracks.collectAsStateWithLifecycle()
+    val playerTracks by vm.playerTracks.collectAsStateWithLifecycle()
     val playlists by vm.playlists.collectAsStateWithLifecycle()
     val members by vm.membership.collectAsStateWithLifecycle()
     val downloads by vm.downloads.collectAsStateWithLifecycle()
@@ -60,7 +61,7 @@ import com.vibemusic.model.*
     BackHandler(settingsOpen || collection != null) { settingsOpen = false;collectionKind = null }
     Scaffold(containerColor = VibeBackground, snackbarHost = { SnackbarHost(snack) }, contentWindowInsets = WindowInsets.safeDrawing, bottomBar = {
         Column(Modifier.navigationBarsPadding()) {
-            tracks.find { it.id == playback.currentId }?.let { MiniPlayer(it, playback, vm) { playerOpen = true } }
+            playerTracks.find { it.id == playback.currentId }?.let { MiniPlayer(it, playback, vm) { playerOpen = true } }
             NavigationBar(containerColor = VibeBackground, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
                 val labels = listOf("Inicio", "Buscar", "Tu biblioteca", "Descargas")
                 val icons = listOf(Icons.Rounded.Home, Icons.Rounded.Search, Icons.Rounded.LibraryMusic, Icons.Rounded.DownloadForOffline)
@@ -84,7 +85,7 @@ import com.vibemusic.model.*
             }
         }
     }
-    tracks.find { it.id == playback.currentId }?.let { current -> if (playerOpen) PlayerScreen(current, playback, tracks, vm, { playerOpen = false }, { options = it }, { playerOpen = false;openCollection(Collection("album", current.album, current.album)) }) }
+    playerTracks.find { it.id == playback.currentId }?.let { current -> if (playerOpen) PlayerScreen(current, playback, playerTracks, vm, { playerOpen = false }, { options = it }, { playerOpen = false;openCollection(Collection("album", current.album, current.album)) }) }
     if (spotifyImportOpen) SpotifyImportDialog({ spotifyImportOpen = false }, { spotifyImportOpen = false;playlistFile.launch(arrayOf("*/*")) }, { vm.messages.tryEmit(it) })
     options?.let { selected ->
         val track = tracks.find { it.id == selected.id } ?: selected

@@ -1,20 +1,28 @@
-# YouTube y MP3 en Vibe 1.4
+# YouTube y MP3 en Vibe 1.5
 
 En **Buscar**, la fuente inicial es **YouTube**. Escribe una canción/artista o
 pega un enlace de un vídeo público. La búsqueda se ejecuta dentro de Vibe con
 yt-dlp, incluye páginas de 20 resultados y permite cancelar consultas antiguas.
 
-- **Reproducir** abre una vista previa de audio con Media3/ExoPlayer. yt-dlp
-  resuelve una URL temporal de audio; se admiten pistas directas y HLS. El audio
-  comienza cuando está listo, sin depender de WebView ni del permiso de inserción
-  de un vídeo. Hay pausa, progreso y desplazamiento dentro de la canción.
-- La vista previa consume internet y no añade archivos a la biblioteca. Se pausa
-  al pasar Vibe a segundo plano y se libera al cerrar la vista. Una resolución que
-  termina en segundo plano no empieza a sonar; volver a Vibe no reanuda sola.
-  Reintentar audio obtiene una URL nueva; no se persisten las URLs temporales.
-- **Ver página aquí** permite navegar por YouTube dentro de Vibe. Al abrir un
-  vídeo, **Escuchar solo el audio** cambia a la vista nativa del vídeo seleccionado.
-  La búsqueda web alternativa sigue disponible si falla la búsqueda nativa.
+- Los resultados aparecen como filas compactas bajo el buscador fijo. La lista
+  se desplaza y muestra más páginas; sin texto aparecen las últimas 12 canciones
+  seleccionadas, con título, artista y portada.
+- Tocar una canción o **Reproducir** usa el mismo Media3/ExoPlayer del servicio
+  que los archivos descargados. No abre una vista aparte: el minirreproductor
+  muestra portada, duración, progreso, pausa y descarga. Solo al tocar esa barra
+  se abre el reproductor completo. Continúa en segundo plano con controles Android.
+- Play resuelve una URL temporal (audio directo o HLS); no descarga ni convierte
+  un MP3. Se adelanta la resolución del primer resultado cuando no hay selección
+  online y se reutilizan hasta 8 enlaces, durante un máximo de 5 minutos o hasta
+  un minuto antes de su caducidad. No se guardan esos enlaces en disco.
+- El primer inicio depende de YouTube/red. Se limitan resolución a 20 segundos
+  y resolución + búfer a 25; Play no hereda los reintentos largos de descarga.
+  La X cancela la conexión; después de un error, Play obtiene un enlace nuevo.
+  Cambiar de canción cancela el trabajo anterior. No se garantiza inicio instantáneo.
+- Si el MP3 ya existe se utiliza el archivo local. Escuchar en línea no añade una
+  canción a la biblioteca ni sustituye la última cola local guardada.
+- La página de YouTube permanece como alternativa si no hay resultados nativos.
+  Allí **Escuchar solo el audio** cierra la página y usa el reproductor principal.
 - **Descargar MP3** añade una tarea persistente a **Descargas**. El teléfono
   descarga el audio y FFmpeg lo convierte a MP3 VBR de alta calidad. No se usa
   una página de conversión ni un servidor intermedio.
@@ -53,7 +61,7 @@ su código fuente. Se vuelve a verificar al instalarlo en el almacenamiento de l
 app. No hay actualizaciones de código remotas silenciosas: actualizar el motor
 requiere actualizar ese recurso y su huella y publicar otro APK. Los cambios de
 YouTube pueden romper la extracción; una compilación exitosa no prueba una
-descarga en vivo. Consulta [VALIDATION-1.4.md](VALIDATION-1.4.md).
+descarga en vivo. Consulta [VALIDATION-1.5.md](VALIDATION-1.5.md).
 
 Los comandos se pasan como listas de argumentos, sin shell. Los enlaces de vídeo
 se validan y normalizan a un ID de YouTube; no se envían rutas locales ni URLs
@@ -78,7 +86,7 @@ adicional al prepararse por primera vez. Se generan APK por arquitectura:
 - `armeabi-v7a`: teléfonos Android de 32 bits.
 - `x86_64`: pruebas en emulador.
 
-Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 6.
+Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 7.
 No desinstales la app para actualizar: Room migra versiones 1 y 2 a 3 sin borrar
 tu biblioteca. Para ver arquitecturas soportadas usa
 `adb shell getprop ro.product.cpu.abilist`.

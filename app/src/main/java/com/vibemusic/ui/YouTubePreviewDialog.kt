@@ -93,7 +93,7 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
                             TextButton({ session.reload() }) { Text("Reintentar") }
                             if (!page && selected != null) TextButton({ session.showPage(selected!!.url) }) { Text("Ver página aquí") }
                         }
-                        if (selected != null) Button({ session.pause();audioMode = true }, Modifier.fillMaxWidth()) { Text("Escuchar solo el audio") }
+                        if (selected != null) Button({ session.pause();onDismiss();selected?.let { vm.playYouTube(it, request.requestId) } }, Modifier.fillMaxWidth()) { Text("Escuchar solo el audio") }
                         Text(if (page) "Abre un vídeo en esta página para descargar su audio. La selección se actualiza al cambiar de vídeo." else "Pulsa ▶ en el vídeo para escucharlo. El reproductor y sus anuncios pertenecen a YouTube.", color = VibeMuted, fontSize = 12.sp)
                     } else Text("No se pudo iniciar el reproductor. Instala o actualiza Android System WebView. Puedes seguir usando la descarga a MP3.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     Text("Elige una canción y pulsa Descargar MP3. Vibe usa el vídeo seleccionado automáticamente y guarda el audio para escucharlo sin conexión ni anuncios. Descarga audio que tengas permiso para guardar.", color = VibeMuted, fontSize = 12.sp)

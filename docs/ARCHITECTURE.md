@@ -47,14 +47,26 @@ el comportamiento exacto durante llamadas, Bluetooth y las políticas de baterí
 del fabricante; estas variantes necesitan pruebas en dispositivos físicos.
 
 
-## Vista previa de audio y portadas (1.4)
+## Audio en línea y portadas (1.5)
 
-YouTubeMusic.resolveAudio usa el mismo motor local que la búsqueda/descarga, con
-skip-download y selección de audio. YouTubeAudioStream valida HTTPS, host de medios,
-códec y cabeceras permitidas. YouTubeAudioPreview crea un ExoPlayer independiente;
-ForegroundAudioPreview lo prepara según el estado de Lifecycle y lo libera al
-cerrar. No se añade a MediaSession ni a Room: es una muestra mientras la app está
-visible. La biblioteca offline sigue usando PlaybackService.
+SearchScreen muestra filas compactas bajo una cabecera fija y recuerda metadatos
+recientes en DataStore. MusicViewModel entrega la selección al MediaSessionService
+mediante un comando exclusivo de la app. OnlinePlayback administra una sola
+selección con cancelación, error y plazo total; comparte ExoPlayer con la cola local.
+La selección temporal alimenta playerTracks y el minirreproductor, sin insertar
+archivos vacíos en Room. El servicio no persiste URLs ni IDs temporales.
+
+YouTubeMusic.resolveAudio usa skip-download y selección de audio. YouTubeAudioStream
+valida HTTPS, host de medios, códec y cabeceras permitidas. StreamResolver comparte
+consultas en curso, precarga solo metadatos/URL del primer resultado y almacena
+hasta 8 URLs en memoria, con caducidad. Usa 20 s de resolución y OnlinePlayback
+25 s incluyendo búfer inicial; Media3 usa 750 ms de búfer para empezar. FFmpeg se
+inicializa solo para convertir descargas. Los límites evitan esperas indefinidas;
+no garantizan latencia ni disponibilidad del servicio de YouTube.
+
+La vista web alternativa conserva su propia pausa por ciclo de vida. Su botón de
+audio vuelve al reproductor principal. La clase de vista previa de 1.4 queda como
+componente anterior; no es el flujo que usa Play en los resultados.
 
 YouTubeArtwork guarda imágenes validadas mediante archivos temporales y renombrado.
 El Worker intenta guardar la portada después de registrar el audio. El ViewModel
