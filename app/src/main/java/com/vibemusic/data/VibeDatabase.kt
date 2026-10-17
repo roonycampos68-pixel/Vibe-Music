@@ -15,6 +15,7 @@ interface MusicDao {
     @Query("SELECT * FROM tracks WHERE contentHash = :hash LIMIT 1") suspend fun byHash(hash: String): Track?
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertTrack(track: Track): Long
     @Query("UPDATE tracks SET favorite = NOT favorite WHERE id = :id") suspend fun toggleFavorite(id: String)
+    @Query("UPDATE tracks SET artworkPath = :path WHERE id = :id") suspend fun updateArtwork(id: String, path: String)
     @Query("UPDATE tracks SET lastPlayedAt = :time, playCount = playCount + 1 WHERE id = :id") suspend fun markPlayed(id: String, time: Long)
     @Delete suspend fun deleteTrack(track: Track)
     @Query("SELECT * FROM playlists ORDER BY createdAt DESC") fun observePlaylists(): Flow<List<Playlist>>

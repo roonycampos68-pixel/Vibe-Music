@@ -45,3 +45,18 @@ La compatibilidad de formato depende de los decodificadores Android y Media3. AA
 con DRM y archivos dañados no se importan como audio utilizable. Android controla
 el comportamiento exacto durante llamadas, Bluetooth y las políticas de batería
 del fabricante; estas variantes necesitan pruebas en dispositivos físicos.
+
+
+## Vista previa de audio y portadas (1.4)
+
+YouTubeMusic.resolveAudio usa el mismo motor local que la búsqueda/descarga, con
+skip-download y selección de audio. YouTubeAudioStream valida HTTPS, host de medios,
+códec y cabeceras permitidas. YouTubeAudioPreview crea un ExoPlayer independiente;
+ForegroundAudioPreview lo prepara según el estado de Lifecycle y lo libera al
+cerrar. No se añade a MediaSession ni a Room: es una muestra mientras la app está
+visible. La biblioteca offline sigue usando PlaybackService.
+
+YouTubeArtwork guarda imágenes validadas mediante archivos temporales y renombrado.
+El Worker intenta guardar la portada después de registrar el audio. El ViewModel
+recupera las portadas faltantes de descargas antiguas al abrir la app con conexión.
+MusicDao.updateArtwork solo cambia el campo existente: Room continúa en versión 3.

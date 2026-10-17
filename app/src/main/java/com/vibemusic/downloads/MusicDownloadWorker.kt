@@ -79,6 +79,9 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                 partial.delete()
             }
             if (entry.provider == "youtube") youtubeDir.deleteRecursively()
+            if (entry.provider == "youtube" && !app.settings.settings.first().offlineOnly) {
+                dao.download(id)?.savedTrackId?.let { dao.track(it) }?.let { app.repository.cacheYouTubeArtwork(it) }
+            }
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (e: IOException) {

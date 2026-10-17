@@ -25,6 +25,15 @@ class MusicRepository(private val context: Context, val database: VibeDatabase) 
     val requests = dao.observeRequests()
     val musicDir = File(context.filesDir, "music").apply { mkdirs() }
     val artDir = File(context.filesDir, "artwork").apply { mkdirs() }
+    suspend fun cacheYouTubeArtwork(track: Track) {
+        if (track.artworkPath?.let { File(it).isFile } == true) return
+        val id = track.sourceUrl?.let(YouTubeSearch::videoId) ?: return
+        try {
+            val image = YouTubeArtwork(artDir).fetch(id)
+            dao.updateArtwork(track.id, image.absolutePath)
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { /* Keep the playable audio even when artwork is unavailable. */ }
+    }
 
     suspend fun importMusic(uri: Uri): Track = withContext(Dispatchers.IO) {
         val name = runCatching { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->

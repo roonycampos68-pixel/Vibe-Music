@@ -1,6 +1,6 @@
 # Pruebas de dispositivo
 
-La matriz de resultados actual está en `VALIDATION-1.3.md`. Este documento es
+La matriz de resultados actual está en `VALIDATION-1.4.md`. Este documento es
 el procedimiento reproducible; una casilla de esta lista no significa que se haya
 superado la prueba.
 
@@ -127,3 +127,29 @@ adb -s emulator-5556 shell am instrument -w -r -e class com.vibemusic.EmbeddedPl
 El número de serie y ABI deben corresponder al dispositivo de pruebas. Comprueba
 `OK (1 test)` y el código de cada caso, no solo la salida del comando ADB: Android
 puede terminar el comando aunque haya una aserción fallida.
+
+
+## Audio y portadas de YouTube (1.4)
+
+1. Buscar por título y pulsar Play. Debe abrir «Escuchar audio» con portada,
+   resolver el audio y reproducirlo sin crear una descarga ni abrir un vídeo.
+2. Pausar, reanudar y adelantar. Cambiar de app mientras resuelve y mientras suena:
+   debe quedar pausado; volver no debe iniciar audio automáticamente.
+3. Cerrar la vista mientras prepara y después de reproducir: no debe quedar sonido
+   ni una petición que empiece a sonar más tarde. Repetir con otra canción.
+4. Probar un error de red y Reintentar audio; debe resolver una URL nueva.
+5. Descargar desde esa misma vista, reproducir el archivo y abrir su reproductor:
+   fondo opaco, texto blanco, portada del vídeo. No se debe ver Buscar por detrás.
+6. Abrir la app con canciones de YouTube descargadas con 1.3: comprobar la llegada
+   de portadas y su conservación después en modo avión. Si la imagen falla,
+   el audio debe seguir siendo reproducible.
+7. Desde la página web interna, abrir otro vídeo y pulsar Escuchar solo el audio:
+   confirmar que corresponde al vídeo nuevo, no al resultado anterior.
+
+`AudioPreviewPlaybackTest` prepara un WAV original incluido con ExoPlayer, verifica
+que avanza el reloj de audio y que Lifecycle pausa el reproductor. No contacta
+YouTube ni sustituye los pasos en red anteriores. Puede ejecutarse sin Activity con:
+
+```bash
+adb shell am instrument -w -r -e class com.vibemusic.AudioPreviewPlaybackTest com.vibemusic.test/androidx.test.runner.AndroidJUnitRunner
+```

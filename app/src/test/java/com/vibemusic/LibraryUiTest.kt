@@ -185,7 +185,7 @@ class LibraryUiTest {
         compose.onNodeWithText("YouTube dentro de Vibe").assertDoesNotExist()
     }
 
-    @Test fun opensEmbeddedPreviewForAPastedVideoAndQueuesMp3FromTheSameDialog() {
+    @Test fun opensNativeAudioPreviewAndQueuesMp3FromTheSameDialog() {
         val app = compose.activity.application as VibeApplication
         runBlocking { app.settings.offlineOnly(false) }
         compose.waitUntil(10000) { compose.onAllNodesWithText("No se pudo conectar con el reproductor. Vuelve a abrir Vibe Music.").fetchSemanticsNodes().isNotEmpty() }
@@ -193,11 +193,11 @@ class LibraryUiTest {
         compose.onNodeWithText("Buscar").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         compose.onNodeWithText("Buscar en la página de YouTube aquí").performScrollTo().performClick()
-        compose.onNodeWithText("Vista previa de YouTube").assertIsDisplayed()
+        compose.onNodeWithText("Escuchar audio").assertIsDisplayed()
         compose.onNodeWithText("Ver página aquí").performScrollTo().assertExists()
         compose.onNodeWithText("Descargar MP3").assertIsDisplayed().performClick()
         compose.waitUntil(15000) {
-            compose.onNodeWithText("Vista previa de YouTube").fetchSemanticsNode()
+            compose.onNodeWithText("Escuchar audio").fetchSemanticsNode()
             runBlocking { app.database.music().download("youtube-dQw4w9WgXcQ") != null }
         }
         runBlocking {
@@ -206,7 +206,7 @@ class LibraryUiTest {
         }
         compose.runOnIdle { assertEquals(null, Shadows.shadowOf(compose.activity).nextStartedActivity) }
         compose.onNodeWithText("Ver descargas").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Vista previa de YouTube").assertDoesNotExist()
+        compose.onNodeWithText("Escuchar audio").assertDoesNotExist()
         compose.onNodeWithContentDescription("Cerrar vista de YouTube").assertDoesNotExist()
     }
 

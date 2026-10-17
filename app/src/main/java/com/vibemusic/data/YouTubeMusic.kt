@@ -55,6 +55,14 @@ object YouTubeMetadata {
 }
 
 object YouTubeCommands {
+    fun preview(url: String): YoutubeDLRequest {
+        val id = YouTubeSearch.videoId(url) ?: error("Selecciona un vídeo público válido de YouTube")
+        return base(YouTubeSearch.videoUrl(id).toString()).apply {
+            addOption("--no-playlist");addOption("--skip-download");addOption("--dump-single-json")
+            addOption("--format", "bestaudio[ext=m4a]/bestaudio")
+            addOption("--match-filter", "!is_live")
+        }
+    }
     fun search(query: String, offset: Int): YoutubeDLRequest {
         require(query.isNotBlank() && query.length <= 500)
         require(offset in 0..80 && offset % 20 == 0)
@@ -84,6 +92,14 @@ object YouTubeCommands {
 
 /** Python/yt-dlp and FFmpeg run locally, with argv lists rather than a shell or converter website. */
 class YouTubeMusic(private val context: Context) {
+    suspend fun resolveAudio(url: String): YouTubeAudioStream {
+        initialize()
+        val processId = "preview-${UUID.randomUUID()}"
+        try {
+            val result = runInterruptible(Dispatchers.IO) { YoutubeDL.execute(YouTubeCommands.preview(url), processId) }
+            return YouTubeAudioStream.parse(result.out)
+        } finally { YoutubeDL.destroyProcessById(processId) }
+    }
     private suspend fun initialize() = withContext(Dispatchers.IO) {
         YoutubeDL.init(context)
         FFmpeg.init(context)

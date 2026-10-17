@@ -6,16 +6,16 @@ y reproducción real con Media3.
 
 ## Instalar en el teléfono
 
-**[Descargar APK para Android (ARM64)](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.3.1-arm64-v8a-debug.apk%3Fraw%3Dtrue)**.
-Para teléfonos de 32 bits: [descargar ARMv7](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.3.1-armeabi-v7a-debug.apk%3Fraw%3Dtrue).
+**[Descargar APK para Android (ARM64)](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.4.0-arm64-v8a-debug.apk%3Fraw%3Dtrue)**.
+Para teléfonos de 32 bits: [descargar ARMv7](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.4.0-armeabi-v7a-debug.apk%3Fraw%3Dtrue).
 Estos enlaces pasan por el inicio de sesión de GitHub y vuelven al instalador;
 usa la cuenta con acceso a este repositorio. Si ya tienes sesión, abre
-[el archivo del APK](releases/Vibe-Music-1.3.1-arm64-v8a-debug.apk) y pulsa
+[el archivo del APK](releases/Vibe-Music-1.4.0-arm64-v8a-debug.apk) y pulsa
 **Download raw file**.
 Descárgalo en tu Android, abre el archivo y permite instalar aplicaciones desde el
 navegador/gestor de archivos cuando Android lo solicite. Es una compilación de
 pruebas firmada con una clave de depuración, no una publicación de Google Play.
-La versión 1.3.1 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
+La versión 1.4.0 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
 Si GitHub muestra 404, inicia sesión con una cuenta que tenga acceso al repositorio
 en el mismo navegador. Un enlace directo de raw.githubusercontent.com no reutiliza
 la sesión de github.com para archivos privados. La app no necesita acceso a GitHub para buscar música.
@@ -40,10 +40,12 @@ incluidas bajo CC0. Después, toda esa música funciona sin internet.
 - Descargar audio de vídeos públicos y convertirlo a MP3 en el teléfono mediante
   yt-dlp y FFmpeg. Progreso, pausa, reanudación, cancelación y vinculación a
   playlists; los MP3 completos se reproducen sin internet y sin anuncios.
-- Vista previa con el reproductor oficial de YouTube dentro de Vibe, junto al
-  botón de descarga. Si el vídeo no permite el reproductor integrado, su página
-  también se puede abrir aquí. La búsqueda web alternativa permanece en Vibe.
-  YouTube conserva sus anuncios; el MP3 guardado se reproduce con Media3 sin red.
+- Vista previa de **audio nativo** al pulsar Play en los resultados de YouTube,
+  con portada, pausa y progreso, sin depender de un vídeo incrustado. Se detiene al
+  salir de la vista o pasar la app a segundo plano. La descarga sigue disponible.
+- Portadas de YouTube guardadas para las canciones descargadas, incluidas las
+  anteriores cuando vuelves a abrir Vibe con conexión. Reproductor con fondo opaco
+  y texto blanco. La página de YouTube sigue disponible como alternativa interna.
 - Importar playlists de Spotify mediante CSV de Exportify o JSON de los datos
   de tu cuenta. Conserva el orden y los títulos pendientes; vincula archivos
   locales y permite buscar coincidencias autorizadas. Exporta playlists a CSV.
@@ -113,7 +115,7 @@ están en [docs/DEVICE_TESTS.md](docs/DEVICE_TESTS.md).
 
 ## Documentación
 
-- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION-1.3.md)
+- [Validación de esta entrega y limitaciones comprobadas](docs/VALIDATION-1.4.md)
 - [Arquitectura y persistencia](docs/ARCHITECTURE.md)
 - [Catálogos legales y descargas](docs/CATALOG.md)
 - [Importar y exportar playlists de Spotify](docs/SPOTIFY.md)

@@ -9,7 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.vibemusic.model.Track
 import com.vibemusic.model.MusicRules
+import com.vibemusic.data.YouTubeSearch
+import com.vibemusic.data.YouTubeWeb
+import com.vibemusic.data.Settings
+import com.vibemusic.VibeApplication
 import java.io.File
 import kotlin.math.*
 
@@ -40,6 +45,11 @@ val VibeMuted = Color(0xFFB3B3B3)
 }
 
 @Composable fun Art(track: Track? = null, modifier: Modifier = Modifier, label: String = "Vibe", color: Color = track?.let { Color(it.color) } ?: Color(0xFF37685F), path: String? = track?.artworkPath) {
+    val youtubeId = track?.sourceUrl?.let(YouTubeSearch::videoId)
+    if (youtubeId != null) {
+        YouTubeCover(youtubeId, track.title, modifier, path)
+        return
+    }
     Box(modifier.clip(RoundedCornerShape(8.dp)).background(color)) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(Brush.linearGradient(listOf(color.copy(alpha = 1f), Color(0xFF111719)), start = Offset(0f, 0f), end = Offset(size.width, size.height)))
@@ -75,6 +85,19 @@ val VibeMuted = Color(0xFFB3B3B3)
                 Text(track?.title ?: "VOL. 01", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 2)
             }
         }
+    }
+}
+
+@Composable fun YouTubeCover(id: String, title: String, modifier: Modifier = Modifier, path: String? = null) {
+    val context = LocalContext.current
+    val app = context.applicationContext as VibeApplication
+    val settings by app.settings.settings.collectAsState(initial = Settings(offlineOnly = true))
+    val local = path?.let(::File)?.takeIf { it.isFile }
+        ?: File(app.repository.artDir, "youtube-$id.jpg").takeIf { it.isFile }
+    Box(modifier.clip(RoundedCornerShape(8.dp)).background(VibeCard), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.MusicNote, null, Modifier.fillMaxSize(.3f), tint = VibeMuted)
+        val model = local ?: if (!settings.offlineOnly) YouTubeWeb.thumbnail(id) else null
+        if (model != null) AsyncImage(model, "Portada de $title", Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
     }
 }
 

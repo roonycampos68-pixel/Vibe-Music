@@ -1,19 +1,20 @@
-# YouTube y MP3 en Vibe 1.3.1
+# YouTube y MP3 en Vibe 1.4
 
 En **Buscar**, la fuente inicial es **YouTube**. Escribe una canción/artista o
 pega un enlace de un vídeo público. La búsqueda se ejecuta dentro de Vibe con
 yt-dlp, incluye páginas de 20 resultados y permite cancelar consultas antiguas.
 
-- **Reproducir** muestra el reproductor oficial de YouTube dentro de Vibe, con
-  sus controles y anuncios. La reproducción comienza al tocar el vídeo. El botón
-  **Descargar MP3** queda fijo debajo de la vista: no hay que copiar ni pegar enlaces. Si el MP3 ya está guardado, se reproduce con Media3.
-- **Ver página aquí** abre la página del vídeo dentro de Vibe para los vídeos que
-  no permiten incrustación o cuando el reproductor falla. La selección de descarga
-  cambia con el vídeo de la página y con los relacionados del reproductor; volver
-  a la búsqueda deshabilita el botón.
-- **Buscar en la página de YouTube aquí** permite buscar en la web oficial dentro
-  de la app si falla la búsqueda nativa. No abre otra aplicación. Al pegar un
-  enlace de vídeo, este botón permite abrir directamente su vista previa.
+- **Reproducir** abre una vista previa de audio con Media3/ExoPlayer. yt-dlp
+  resuelve una URL temporal de audio; se admiten pistas directas y HLS. El audio
+  comienza cuando está listo, sin depender de WebView ni del permiso de inserción
+  de un vídeo. Hay pausa, progreso y desplazamiento dentro de la canción.
+- La vista previa consume internet y no añade archivos a la biblioteca. Se pausa
+  al pasar Vibe a segundo plano y se libera al cerrar la vista. Una resolución que
+  termina en segundo plano no empieza a sonar; volver a Vibe no reanuda sola.
+  Reintentar audio obtiene una URL nueva; no se persisten las URLs temporales.
+- **Ver página aquí** permite navegar por YouTube dentro de Vibe. Al abrir un
+  vídeo, **Escuchar solo el audio** cambia a la vista nativa del vídeo seleccionado.
+  La búsqueda web alternativa sigue disponible si falla la búsqueda nativa.
 - **Descargar MP3** añade una tarea persistente a **Descargas**. El teléfono
   descarga el audio y FFmpeg lo convierte a MP3 VBR de alta calidad. No se usa
   una página de conversión ni un servidor intermedio.
@@ -52,7 +53,7 @@ su código fuente. Se vuelve a verificar al instalarlo en el almacenamiento de l
 app. No hay actualizaciones de código remotas silenciosas: actualizar el motor
 requiere actualizar ese recurso y su huella y publicar otro APK. Los cambios de
 YouTube pueden romper la extracción; una compilación exitosa no prueba una
-descarga en vivo. Consulta [VALIDATION-1.3.1.md](VALIDATION-1.3.1.md).
+descarga en vivo. Consulta [VALIDATION-1.4.md](VALIDATION-1.4.md).
 
 Los comandos se pasan como listas de argumentos, sin shell. Los enlaces de vídeo
 se validan y normalizan a un ID de YouTube; no se envían rutas locales ni URLs
@@ -77,32 +78,37 @@ adicional al prepararse por primera vez. Se generan APK por arquitectura:
 - `armeabi-v7a`: teléfonos Android de 32 bits.
 - `x86_64`: pruebas en emulador.
 
-Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 5.
+Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 6.
 No desinstales la app para actualizar: Room migra versiones 1 y 2 a 3 sin borrar
 tu biblioteca. Para ver arquitecturas soportadas usa
 `adb shell getprop ro.product.cpu.abilist`.
 
-## Vista web y MP3Cow
+## Portadas, vista web y MP3Cow
 
-El documento del reproductor se carga con origen y Referer `https://com.vibemusic/`,
-identificando el paquete Android. Solo se interpolan IDs de vídeo validados; el
-título se muestra como texto nativo. No se expone un objeto Android con `addJavascriptInterface`,
-no se concede acceso a archivos/contenidos locales ni se abren intents de otras
-apps. El servicio conserva sus recursos, cookies y publicidad HTTPS. La vista
-se pausa al pasar Vibe a segundo plano y se destruye al cerrar; no se reanuda la
-biblioteca automáticamente al volver. La descarga continúa en WorkManager.
+Las miniaturas oficiales de `i.ytimg.com` se guardan en el directorio privado de
+portadas. Se validan tamaño (hasta 2 MB), dimensiones y decodificación antes de
+renombrar el archivo temporal. Una portada fallida no impide guardar ni escuchar
+el audio. Vibe también recupera portadas de canciones de YouTube descargadas antes
+de 1.4 al abrir la app con conexión; puede reintentarse volviendo a abrirla.
+Una vez guardadas, funcionan sin red en biblioteca, minirreproductor y reproductor.
 
-Los errores de inserción 100/101/150/153 y de conexión muestran una explicación
-y permiten reintentar o abrir la página aquí. No se garantiza reproducción de
-cada vídeo: sus restricciones, Android System WebView y la red siguen influyendo.
+El reproductor local usa un fondo completamente opaco y texto blanco. Los colores
+intermedios del degradado se mezclan con el fondo, sin bajar su opacidad.
+
+La página alternativa conserva un WebView con HTTPS y sin puente JavaScript a
+Android, acceso a archivos locales o intents de otras apps. El código del iframe
+anterior permanece disponible, pero Play desde los resultados ya usa audio nativo.
+Las restricciones de YouTube y los cambios del servicio siguen pudiendo impedir
+resolver o reproducir algunos audios; compilar no prueba el acceso a todos ellos.
 
 El usuario propuso `https://mp3cow.com/?v=7Y-xGsEPnsU` como conversor detrás del
 botón. **MP3Cow no está integrado ni automatizado en esta entrega.** La política
 activa de la nube no permite consultar ese dominio; no se inspeccionó su web ni
-se verificó una API o un flujo de descarga. Los dominios ya constan en la versión publicada del entorno. Al comprobar 1.3.1,
-esta sesión seguía vinculada a la versión inicial, sin esos permisos, y el proxy
-respondía CONNECT 403. Hace falta ejecutar la comprobación desde una tarea que use
-la versión publicada; volver a guardar el mismo borrador no verifica el acceso. No se
+se verificó una API o un flujo de descarga. Los dominios ya constan en la versión publicada del entorno. Al comprobar 1.4, el estado del entorno
+ya informa de los dominios permitidos, pero las peticiones reales de esta nube
+a YouTube y a las miniaturas siguen recibiendo CONNECT 403. El usuario confirmó
+que buscar y descargar sí funciona en su teléfono; no se presenta eso como una
+prueba de streaming ejecutada en esta nube. No se
 presenta una página precargada como si fuera una conversión automática comprobada.
 El botón usa el conversor local documentado arriba, sin copiar al portapapeles ni
 enviar enlaces a MP3Cow. En 1.3.1 los errores temporales de red del proceso nativo

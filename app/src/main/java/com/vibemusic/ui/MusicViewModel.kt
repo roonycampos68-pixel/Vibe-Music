@@ -82,6 +82,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     init {
         connect()
         viewModelScope.launch { while (isActive) { delay(500);refreshPlayback() } }
+        viewModelScope.launch {
+            // Also populate covers for songs downloaded before cover support was added.
+            val attempted = mutableSetOf<String>()
+            combine(tracks, app.settings.settings.map { it.offlineOnly }.distinctUntilChanged()) { list, offline -> list to offline }
+                .collectLatest { (list, offline) ->
+                    if (!offline) list.filter { it.sourceUrl?.let(YouTubeSearch::videoId) != null && it.artworkPath?.let { path -> File(path).isFile } != true }
+                        .forEach { track ->
+                            if (attempted.add(track.id)) try { repo.cacheYouTubeArtwork(track) }
+                            catch (e: CancellationException) { attempted.remove(track.id);throw e }
+                        }
+                }
+        }
     }
     private fun connect() {
         if (cleared || controller?.isConnected == true || future?.isDone == false) return
@@ -184,6 +196,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun cancelYouTubeSearch() { youtubeGeneration++;youtubeJob?.cancel();_youtubeLoading.value = false }
+    suspend fun resolveYouTubeAudio(track: YouTubeTrack): YouTubeAudioStream {
+        check(!app.settings.settings.first().offlineOnly) { "YouTube necesita conexión a internet" }
+        return youtube.resolveAudio(track.url)
+    }
     fun downloadYouTube(track: YouTubeTrack, requestId: String? = null) = runTask {
         val id = coordinator.enqueueYouTube(track, app.settings.settings.first(), requestId)
         messages.emit(if (repo.dao.track(id) != null) "MP3 disponible sin conexión" else "Descarga y conversión a MP3 añadidas. Consulta Descargas")

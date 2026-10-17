@@ -19,18 +19,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vibemusic.model.*
-import com.vibemusic.data.YouTubeWeb
 import com.vibemusic.data.YouTubeSearch
 import com.vibemusic.data.YouTubeTrack
-import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable fun SearchScreen(vm: MusicViewModel, tracks: List<Track>, playlists: List<Playlist>, playback: PlaybackState, onCollection: (Collection) -> Unit, onMore: (Track) -> Unit, onSettings: () -> Unit, onImportMusic: () -> Unit = {}, onImportSpotify: () -> Unit = {}, onDownloads: () -> Unit = {}) {
@@ -115,13 +111,10 @@ import kotlinx.coroutines.delay
                 TextButton({ source = "Mi música" }) { Text("Escuchar mi música guardada") }
             }
             items(youtubeTracks, key = { "youtube-${it.id}" }) { track ->
-                val saved = tracks.find { it.id == track.downloadId || it.sourceUrl == track.url }
                 val task = downloads.find { it.id == track.downloadId }
+                val saved = tracks.find { it.id == task?.savedTrackId || it.id == track.downloadId || it.sourceUrl == track.url }
                 ListItem(headlineContent = { Text(track.title, maxLines = 2, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${track.artist} · ${MusicRules.formatTime(track.durationMs)}" + if (saved != null) " · MP3 guardado" else if (task != null) " · Ver Descargas" else "", color = VibeMuted, fontSize = 12.sp) }, leadingContent = {
-                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(8.dp))) {
-                        Art(modifier = Modifier.fillMaxSize(), label = track.title)
-                        if (!settings.offlineOnly) AsyncImage(YouTubeWeb.thumbnail(track.id), "Miniatura de ${track.title}", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    }
+                    YouTubeCover(track.id, track.title, Modifier.size(52.dp), saved?.artworkPath)
                 }, trailingContent = {
                     Row {
                         IconAction(Icons.Rounded.PlayArrow, "Escuchar ${track.title}", {

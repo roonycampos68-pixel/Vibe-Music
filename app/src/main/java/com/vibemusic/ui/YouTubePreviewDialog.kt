@@ -37,22 +37,23 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
     val settings by vm.settings.collectAsState()
     var selected by remember { mutableStateOf(request.track) }
     var page by remember { mutableStateOf(request.track == null) }
+    var audioMode by remember { mutableStateOf(request.track != null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
-    val webResult = remember(context) { runCatching { WebView(context) } }
+    val webResult = remember(context, audioMode) { if (audioMode) null else runCatching { WebView(context) }.getOrNull() }
     val session = remember(webResult) {
-        webResult.getOrNull()?.let { web -> YouTubeWebSession(web, { selected = it }, { loading = it }, { error = it }, { page = true }).apply { configure() } }
+        webResult?.let { web -> YouTubeWebSession(web, { selected = it }, { loading = it }, { error = it }, { page = true }).apply { configure() } }
     }
     val webHeight = (LocalConfiguration.current.screenHeightDp.dp * if (page) .58f else .38f).coerceIn(220.dp, 520.dp)
     LaunchedEffect(session) {
         vm.pauseForExternalPlayback()
-        session?.let { if (request.track != null) it.preview(request.track) else it.showPage(YouTubeSearch.url(request.query.orEmpty()).toString()) }
+        session?.showPage(selected?.url ?: YouTubeSearch.url(request.query.orEmpty()).toString())
     }
     LaunchedEffect(settings.offlineOnly) { if (settings.offlineOnly) onDismiss() }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
-    LaunchedEffect(loading) {
-        if (loading) {
+    LaunchedEffect(loading, audioMode) {
+        if (loading && !audioMode) {
             delay(25_000)
             if (loading) { loading = false;error = "YouTube está tardando en responder. Puedes reintentar o probar su página aquí." }
         }
@@ -73,7 +74,7 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
         Surface(Modifier.fillMaxSize(), color = VibeBackground) {
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (page) "YouTube dentro de Vibe" else "Vista previa de YouTube", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                    Text(if (audioMode) "Escuchar audio" else "YouTube dentro de Vibe", Modifier.weight(1f), fontWeight = FontWeight.Bold)
                     IconAction(Icons.Rounded.Close, "Cerrar vista de YouTube", onDismiss)
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -81,7 +82,10 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
                         Text(track.title, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                         Text(track.artist, color = VibeMuted, fontSize = 13.sp)
                     }
-                    if (session != null) {
+                    if (audioMode && selected != null) {
+                        key(selected!!.id) { YouTubeAudioPreview(selected!!, vm::resolveYouTubeAudio) }
+                        TextButton({ audioMode = false }) { Text("Ver página aquí") }
+                    } else if (session != null) {
                         AndroidView(factory = { session.view }, modifier = Modifier.fillMaxWidth().height(webHeight))
                         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
@@ -89,6 +93,7 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
                             TextButton({ session.reload() }) { Text("Reintentar") }
                             if (!page && selected != null) TextButton({ session.showPage(selected!!.url) }) { Text("Ver página aquí") }
                         }
+                        if (selected != null) Button({ session.pause();audioMode = true }, Modifier.fillMaxWidth()) { Text("Escuchar solo el audio") }
                         Text(if (page) "Abre un vídeo en esta página para descargar su audio. La selección se actualiza al cambiar de vídeo." else "Pulsa ▶ en el vídeo para escucharlo. El reproductor y sus anuncios pertenecen a YouTube.", color = VibeMuted, fontSize = 12.sp)
                     } else Text("No se pudo iniciar el reproductor. Instala o actualiza Android System WebView. Puedes seguir usando la descarga a MP3.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     Text("Elige una canción y pulsa Descargar MP3. Vibe usa el vídeo seleccionado automáticamente y guarda el audio para escucharlo sin conexión ni anuncios. Descarga audio que tengas permiso para guardar.", color = VibeMuted, fontSize = 12.sp)

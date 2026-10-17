@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +54,8 @@ import com.vibemusic.model.*
     var seek by remember(track.id) { mutableStateOf<Float?>(null) }
     val duration = state.duration.takeIf { it > 0 } ?: track.durationMs
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(track.color), Color(track.color).copy(alpha = .6f), Color(0xFF101211))))) {
+        Surface(Modifier.fillMaxSize(), color = VibeBackground, contentColor = Color.White) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(playerBackgroundColors(track.color)))) {
             Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 27.dp)) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconAction(Icons.Rounded.KeyboardArrowDown, "Minimizar reproductor", onDismiss)
@@ -94,6 +96,7 @@ import com.vibemusic.model.*
                 Text("DISPONIBLE SIN CONEXIÓN", fontSize = 9.sp, letterSpacing = 1.5.sp, color = VibeMuted, modifier = Modifier.padding(top = 10.dp, bottom = 20.dp).align(Alignment.CenterHorizontally))
             }
         }
+        }
     }
     if (showQueue) AlertDialog(onDismissRequest = { showQueue = false }, title = { Text("A continuación") }, text = {
         LazyColumn { itemsIndexed(state.queue) { index, id -> tracks.find { it.id == id }?.let { item ->
@@ -111,4 +114,10 @@ import com.vibemusic.model.*
             }
         }, confirmButton = { TextButton({ showVolume = false }) { Text("Listo") } })
     }
+}
+
+internal fun playerBackgroundColors(color: Long): List<Color> {
+    val top = Color(color).copy(alpha = 1f)
+    val bottom = Color(0xFF101211)
+    return listOf(top, lerp(top, bottom, .55f), bottom)
 }
