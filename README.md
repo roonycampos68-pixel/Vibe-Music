@@ -6,15 +6,19 @@ y reproducción real con Media3.
 
 ## Instalar en el teléfono
 
-El APK de esta entrega se encuentra en
-[`releases/Vibe-Music-1.3.0-arm64-v8a-debug.apk`](releases/Vibe-Music-1.3.0-arm64-v8a-debug.apk?raw=true).
-Para teléfonos de 32 bits usa [la variante ARM de 32 bits](releases/Vibe-Music-1.3.0-armeabi-v7a-debug.apk?raw=true).
+**[Descargar APK para Android (ARM64)](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.3.1-arm64-v8a-debug.apk%3Fraw%3Dtrue)**.
+Para teléfonos de 32 bits: [descargar ARMv7](https://github.com/login?return_to=%2Froonycampos68-pixel%2FVibe-Music%2Fblob%2Fmain%2Freleases%2FVibe-Music-1.3.1-armeabi-v7a-debug.apk%3Fraw%3Dtrue).
+Estos enlaces pasan por el inicio de sesión de GitHub y vuelven al instalador;
+usa la cuenta con acceso a este repositorio. Si ya tienes sesión, abre
+[el archivo del APK](releases/Vibe-Music-1.3.1-arm64-v8a-debug.apk) y pulsa
+**Download raw file**.
 Descárgalo en tu Android, abre el archivo y permite instalar aplicaciones desde el
 navegador/gestor de archivos cuando Android lo solicite. Es una compilación de
 pruebas firmada con una clave de depuración, no una publicación de Google Play.
-La versión 1.3.0 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
+La versión 1.3.1 actualiza las versiones anteriores conservando la biblioteca; no la desinstales.
 Si GitHub muestra 404, inicia sesión con una cuenta que tenga acceso al repositorio
-y vuelve a abrir el enlace. La app no necesita acceso a GitHub para buscar música.
+en el mismo navegador. Un enlace directo de raw.githubusercontent.com no reutiliza
+la sesión de github.com para archivos privados. La app no necesita acceso a GitHub para buscar música.
 
 También puedes instalar el APK compilado con depuración USB:
 

@@ -92,7 +92,16 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             }
         }
         catch (e: Exception) {
-            dao.downloadState(id, "failed", if (entry.provider == "youtube") "No se pudo descargar o convertir el vídeo. Puede estar restringido o requerir una actualización del motor; prueba otro vídeo público" else e.message ?: "No se pudo completar la descarga")
+            // A late native-process exception must not replace a pause/cancellation.
+            if (dao.download(id)?.state == "paused" || app.settings.settings.first().offlineOnly) return@withContext Result.success()
+            if (entry.provider == "youtube") {
+                val failure = YouTubeFailure.from(e)
+                if (failure.retryable && runAttemptCount < 3) {
+                    dao.downloadState(id, "queued", "${failure.message}. Se reintentará automáticamente")
+                    return@withContext Result.retry()
+                }
+                dao.downloadState(id, "failed", failure.message)
+            } else dao.downloadState(id, "failed", e.message ?: "No se pudo completar la descarga")
             Result.failure()
         } finally { client.connectionPool.evictAll() }
     }

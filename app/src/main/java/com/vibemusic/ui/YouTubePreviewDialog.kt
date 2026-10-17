@@ -91,9 +91,14 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
                         }
                         Text(if (page) "Abre un vídeo en esta página para descargar su audio. La selección se actualiza al cambiar de vídeo." else "Pulsa ▶ en el vídeo para escucharlo. El reproductor y sus anuncios pertenecen a YouTube.", color = VibeMuted, fontSize = 12.sp)
                     } else Text("No se pudo iniciar el reproductor. Instala o actualiza Android System WebView. Puedes seguir usando la descarga a MP3.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    Text("Elige una canción y pulsa Descargar MP3. Vibe usa el vídeo seleccionado automáticamente y guarda el audio para escucharlo sin conexión ni anuncios. Descarga audio que tengas permiso para guardar.", color = VibeMuted, fontSize = 12.sp)
+                    Spacer(Modifier.height(12.dp))
+                }
+                HorizontalDivider()
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     val current = selected
-                    val saved = current?.let { video -> tracks.find { it.id == video.downloadId || it.sourceUrl == video.url } }
                     val task = current?.let { video -> downloads.find { it.id == video.downloadId } }
+                    val saved = current?.let { video -> tracks.find { it.id == task?.savedTrackId || it.id == video.downloadId || it.sourceUrl == video.url } }
                     val active = task?.state in listOf("queued", "downloading")
                     Button({
                         if (saved != null && request.requestId == null) { session?.pause();onDismiss();vm.play(listOf(saved)) }
@@ -108,14 +113,18 @@ fun YouTubePreviewDialog(request: YouTubePreviewRequest, vm: MusicViewModel, onD
                         })
                     }
                     if (task != null && saved == null) {
-                        task.progressPercent?.takeIf { it.isFinite() }?.let { Text("${it.coerceIn(0f, 100f).toInt()} % · ${task.error.orEmpty()}", fontSize = 12.sp, color = VibeMuted) }
-                            ?: Text(task.error ?: when (task.state) { "queued" -> "En cola";"paused" -> "En pausa";"failed" -> "La descarga ha fallado. Puedes reintentar";else -> "Preparando MP3" }, fontSize = 12.sp, color = VibeMuted)
+                        val percent = task.progressPercent?.takeIf { it.isFinite() && task.state == "downloading" }
+                        val status = when (task.state) {
+                            "paused" -> "En pausa. Pulsa Descargar MP3 para continuar"
+                            "queued" -> task.error ?: "En cola"
+                            "failed" -> task.error ?: "La descarga ha fallado. Puedes reintentar"
+                            else -> task.error ?: "Preparando MP3"
+                        }
+                        Text((percent?.let { "${it.coerceIn(0f, 100f).toInt()} % · " } ?: "") + status, fontSize = 12.sp, color = if (task.state == "failed") MaterialTheme.colorScheme.error else VibeMuted, maxLines = 3)
                         TextButton({ onDismiss();onDownloads() }, Modifier.fillMaxWidth()) { Text("Ver descargas") }
                     }
-                    if (current != null) Text("El teléfono convierte el audio a MP3 y lo guarda en tu biblioteca. Una vez guardado, se escucha sin internet ni anuncios. Descarga audio que tengas permiso para guardar.", color = VibeMuted, fontSize = 12.sp)
-                    else Text("Selecciona una canción en YouTube para habilitar «Descargar MP3».", color = VibeMuted, fontSize = 13.sp)
+                    if (current == null) Text("Selecciona una canción en YouTube para habilitar «Descargar MP3».", color = VibeMuted, fontSize = 13.sp)
                     if (saved != null) Text("MP3 guardado · ${MusicRules.formatSize(saved.sizeBytes)}", color = VibeGreen, fontSize = 12.sp)
-                    Spacer(Modifier.height(12.dp))
                 }
                 SnackbarHost(snackbar)
             }

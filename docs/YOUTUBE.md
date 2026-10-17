@@ -1,4 +1,4 @@
-# YouTube y MP3 en Vibe 1.3
+# YouTube y MP3 en Vibe 1.3.1
 
 En **Buscar**, la fuente inicial es **YouTube**. Escribe una canción/artista o
 pega un enlace de un vídeo público. La búsqueda se ejecuta dentro de Vibe con
@@ -6,7 +6,7 @@ yt-dlp, incluye páginas de 20 resultados y permite cancelar consultas antiguas.
 
 - **Reproducir** muestra el reproductor oficial de YouTube dentro de Vibe, con
   sus controles y anuncios. La reproducción comienza al tocar el vídeo. El botón
-  **Descargar MP3** está debajo. Si el MP3 ya está guardado, se reproduce con Media3.
+  **Descargar MP3** queda fijo debajo de la vista: no hay que copiar ni pegar enlaces. Si el MP3 ya está guardado, se reproduce con Media3.
 - **Ver página aquí** abre la página del vídeo dentro de Vibe para los vídeos que
   no permiten incrustación o cuando el reproductor falla. La selección de descarga
   cambia con el vídeo de la página y con los relacionados del reproductor; volver
@@ -52,7 +52,7 @@ su código fuente. Se vuelve a verificar al instalarlo en el almacenamiento de l
 app. No hay actualizaciones de código remotas silenciosas: actualizar el motor
 requiere actualizar ese recurso y su huella y publicar otro APK. Los cambios de
 YouTube pueden romper la extracción; una compilación exitosa no prueba una
-descarga en vivo. Consulta [VALIDATION-1.3.md](VALIDATION-1.3.md).
+descarga en vivo. Consulta [VALIDATION-1.3.1.md](VALIDATION-1.3.1.md).
 
 Los comandos se pasan como listas de argumentos, sin shell. Los enlaces de vídeo
 se validan y normalizan a un ID de YouTube; no se envían rutas locales ni URLs
@@ -77,7 +77,7 @@ adicional al prepararse por primera vez. Se generan APK por arquitectura:
 - `armeabi-v7a`: teléfonos Android de 32 bits.
 - `x86_64`: pruebas en emulador.
 
-Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 4.
+Las tres variantes conservan `com.vibemusic`, la firma anterior y versionCode 5.
 No desinstales la app para actualizar: Room migra versiones 1 y 2 a 3 sin borrar
 tu biblioteca. Para ver arquitecturas soportadas usa
 `adb shell getprop ro.product.cpu.abilist`.
@@ -99,8 +99,12 @@ cada vídeo: sus restricciones, Android System WebView y la red siguen influyend
 El usuario propuso `https://mp3cow.com/?v=7Y-xGsEPnsU` como conversor detrás del
 botón. **MP3Cow no está integrado ni automatizado en esta entrega.** La política
 activa de la nube no permite consultar ese dominio; no se inspeccionó su web ni
-se verificó una API o un flujo de descarga. Los dominios se añadieron al borrador
-del entorno, que necesita revisión, guardado y publicación para activarse. No se
+se verificó una API o un flujo de descarga. Los dominios ya constan en la versión publicada del entorno. Al comprobar 1.3.1,
+esta sesión seguía vinculada a la versión inicial, sin esos permisos, y el proxy
+respondía CONNECT 403. Hace falta ejecutar la comprobación desde una tarea que use
+la versión publicada; volver a guardar el mismo borrador no verifica el acceso. No se
 presenta una página precargada como si fuera una conversión automática comprobada.
 El botón usa el conversor local documentado arriba, sin copiar al portapapeles ni
-enviar enlaces a MP3Cow.
+enviar enlaces a MP3Cow. En 1.3.1 los errores temporales de red del proceso nativo
+se reintentan con WorkManager hasta tres veces; los vídeos restringidos, los límites
+de solicitudes y la falta de espacio se explican sin un bucle automático.
